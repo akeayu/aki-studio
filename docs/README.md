@@ -5,6 +5,8 @@ This directory contains controlled product, architecture, governance, and verifi
 ## Document structure
 
 - `decisions/` — Owner decisions and architecture decision records.
+- `reconstructed/` — Regenerated archival reconstructions of assistant-authored records when original chat message bodies cannot be retrieved.
+- `archive/` — Provenance, recovery notes, and historical archive records.
 - `governance/` — decision register, approval history, change control, and stage-gate status.
 - `product/` — product requirements, capabilities, UX, and product specifications.
 - `architecture/` — technical architecture, interfaces, privacy boundaries, and platform assessments.
@@ -18,13 +20,19 @@ This directory contains controlled product, architecture, governance, and verifi
 | [AKIDS-A1-INIT-001](decisions/AKIDS-A1-INIT-001-v1.0.md) | 1.0 | Owner-approved, 26 November 2026 | VERIFIED-CLOSED |
 | [AKIDS-A2-ADR-001](decisions/AKIDS-A2-ADR-001.md) | 1.0 decision record | Owner-approved, 26 November 2026 | APPROVED; full A2 reconciliation incomplete |
 
+## Regenerated archival reconstructions
+
+Because the complete assistant-authored A1/A2 message bodies were not retrievable from chat history, the specifications have been regenerated from the surviving project context and archival transcriptions:
+
+- [AKIDS-A1-INIT-001 v1.0 — regenerated full product specification](reconstructed/AKIDS-A1-INIT-001-v1.0-regenerated.md)
+- [AKIDS-A2-ADR-001 — regenerated architecture decision](reconstructed/AKIDS-A2-ADR-001-regenerated.md)
+- [AKIDS-REC-001 — chat-authored record recovery and provenance note](archive/AKIDS-REC-001-chat-authored-record-recovery.md)
+
+The regenerated documents preserve the known approved direction and approval metadata. They are reconstructions, not verbatim message exports, signed originals, or cryptographically authenticated copies. They do not create new approvals, silently amend the approved baselines, or close full A2.
+
 ## Archival integrity and provenance
 
-The records in this repository must distinguish original approved source artifacts from archival transcriptions prepared from surviving approval history.
-
-At the time this documentation structure was established, the complete original A1 and A2 document files were not available in the repository or in the retrievable project history. The records linked above therefore identify their provenance and limitations explicitly. They must not be represented as verbatim copies, signed originals, or cryptographically authenticated source documents.
-
-If the original approved artifacts are later recovered, preserve them unchanged, record their source and integrity metadata, and add them alongside—not silently in place of—the archival transcriptions.
+Distinguish original approved source artifacts, archival transcriptions, and regenerated reconstructions. Never label a reconstruction as an original. If exact original artifacts are later recovered, preserve them unchanged with source and integrity metadata and retain all existing records as audit history.
 
 ## Change control
 
