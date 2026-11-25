@@ -1,13 +1,23 @@
 # Aki Studio — Decision and Approval Register
 
-This register is the index of controlled Owner decisions and their current authority boundaries.
+This register indexes controlled Owner decisions, reconstructed archival records, and current authority boundaries.
 
-## Approved records
+## Approved decisions
 
-| ID | Version | Decision date | Decision | Current status | Record |
+| ID | Version | Decision date | Decision | Current status | Controlled record |
 |---|---|---|---|---|---|
-| AKIDS-A1-INIT-001 | 1.0 | 26 November 2026 | Aki Studio product inception baseline | APPROVED / VERIFIED-CLOSED | [A1 baseline](../decisions/AKIDS-A1-INIT-001-v1.0.md) |
-| AKIDS-A2-ADR-001 | 1.0 archival decision record | 26 November 2026 | Invisible IROKA Intelligence Backbone Integration | APPROVED; full A2 reconciliation INCOMPLETE | [A2 decision](../decisions/AKIDS-A2-ADR-001.md) |
+| AKIDS-A1-INIT-001 | 1.0 | 26 November 2026 | Aki Studio product inception baseline | APPROVED / VERIFIED-CLOSED | [A1 baseline transcription](../decisions/AKIDS-A1-INIT-001-v1.0.md) |
+| AKIDS-A2-ADR-001 | 1.0 | 26 November 2026 | Invisible IROKA Intelligence Backbone Integration | APPROVED; full A2 reconciliation INCOMPLETE | [A2 decision transcription](../decisions/AKIDS-A2-ADR-001.md) |
+
+## Regenerated archival reconstructions
+
+| Record | Purpose | Status |
+|---|---|---|
+| [AKIDS-A1-INIT-001 v1.0 regenerated](../reconstructed/AKIDS-A1-INIT-001-v1.0-regenerated.md) | Fuller reconstruction of the approved A1 product inception specification | RECONSTRUCTED; not verbatim |
+| [AKIDS-A2-ADR-001 regenerated](../reconstructed/AKIDS-A2-ADR-001-regenerated.md) | Fuller reconstruction of the approved A2 intelligence-backbone architecture decision | RECONSTRUCTED; not verbatim |
+| [AKIDS-REC-001](../archive/AKIDS-REC-001-chat-authored-record-recovery.md) | Recovery method, accountability, provenance, and source limitations | RECORDED |
+
+The reconstructed records do not replace the historical decision files, create new approvals, or alter the approved decision dates. They consolidate recoverable content because the complete original assistant-authored chat message bodies could not be retrieved.
 
 ## Approval history
 
@@ -47,9 +57,10 @@ This register is the index of controlled Owner decisions and their current autho
 4. Distinguish an approved architecture direction from a technically verified implementation.
 5. Do not mark a stage closed without its required evidence and explicit closure decision.
 6. No implementation, deployment, or expenditure may be inferred from A1/A2 approval.
+7. Keep archival transcriptions and regenerated reconstructions clearly labelled; never represent either as verbatim originals unless exact source text is recovered and verified.
 
 ## Record provenance
 
-The repository copies of A1 and A2 are explicitly marked archival transcriptions because the complete original document artifacts were not available when the archive was created. Approval dates and decisions are transcribed from the surviving project conversation history. They are not represented as digitally signed or independently authenticated approvals.
+The original assistant-authored A1/A2 chat message bodies were not retrievable through the available history interfaces during the recovery attempt. The repository therefore retains the initial archival transcriptions and adds fuller regenerated reconstructions based on surviving project context. The Owner's recorded approvals and dates are preserved, but no missing wording, original message identifiers, signatures, or original-file checksums are invented.
 
-When original artifacts are recovered, preserve them byte-for-byte and add source metadata, including origin, recovery date, filename, and SHA-256 checksum. Do not replace these transcriptions without retaining their history.
+If a complete conversation export or exact source artifact becomes accessible later, preserve it separately and byte-for-byte, record source and SHA-256 metadata, and compare it against these records without erasing the audit trail.
