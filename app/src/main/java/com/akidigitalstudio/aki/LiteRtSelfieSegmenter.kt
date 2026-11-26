@@ -67,7 +67,8 @@ class LiteRtSelfieSegmenter private constructor(
         val scaled = Bitmap.createScaledBitmap(squareMask, side, side, true)
         squareMask.recycle()
         val canvas = android.graphics.Canvas(sourceMask)
-        canvas.drawColor(Color.BLACK)
+        // Outside the model's center-square field of view, preserve pixels as foreground.
+        canvas.drawColor(Color.WHITE)
         canvas.drawBitmap(scaled, left.toFloat(), top.toFloat(), null)
         scaled.recycle()
 
