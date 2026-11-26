@@ -265,6 +265,7 @@ class MainActivity : Activity() {
             addView(LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
+                val navigationButtons = mutableListOf<Pair<String, TextView>>()
                 val labels = listOf(
                     "All" to (if (english) "All" else "ሁሉም"),
                     "Workspace" to (if (english) "Workspace" else "የሥራ ቦታ"),
@@ -275,7 +276,7 @@ class MainActivity : Activity() {
                     "Design Studio" to (if (english) "Design" else "ዲዛይን")
                 )
                 labels.forEach { (key, label) ->
-                    addView(AkiStudioUi.navigationChip(this@MainActivity, label, activeWorkspace == key) {
+                    val chip = AkiStudioUi.navigationChip(this@MainActivity, label, activeWorkspace == key) {
                         activeWorkspace = key
                         workspacePanels.forEach { (title, view) ->
                             val match = when (key) {
@@ -290,16 +291,28 @@ class MainActivity : Activity() {
                             }
                             view.visibility = if (match) View.VISIBLE else View.GONE
                         }
-                        // Refresh selected state by rebuilding the lightweight shell only.
-                        buildScreen()
-                        renderPreview()
-                    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38)).apply {
+                        navigationButtons.forEach { (buttonKey, button) ->
+                            AkiStudioUi.setNavigationChipSelected(button, buttonKey == key)
+                        }
+                    }
+                    navigationButtons.add(key to chip)
+                    addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38)).apply {
                         rightMargin = dp(6)
                     })
                 }
             })
         }
         page.addView(navigation, 1)
+        workspacePanels.forEach { (title, view) ->
+            val visible = activeWorkspace == "All" ||
+                (activeWorkspace == "Workspace" && title == (if (english) "Workspace" else "የሥራ ቦታ")) ||
+                (activeWorkspace == "Image Lab" && title == (if (english) "Image Lab" else "የምስል ላብራቶሪ")) ||
+                (activeWorkspace == "Portrait & ID" && title == (if (english) "Portrait & ID" else "ፖርትሬትና መታወቂያ")) ||
+                (activeWorkspace == "Background Lab" && title == (if (english) "Background Lab" else "የጀርባ ላብራቶሪ")) ||
+                (activeWorkspace == "Print Studio" && title == (if (english) "Print Studio" else "የህትመት ስቱዲዮ")) ||
+                (activeWorkspace == "Design Studio" && title == (if (english) "Design Studio" else "የዲዛይን ስቱዲዮ"))
+            view.visibility = if (visible) View.VISIBLE else View.GONE
+        }
 
         page.addView(AkiStudioUi.spacer(this, 4))
         page.addView(AkiStudioUi.badge(this,
