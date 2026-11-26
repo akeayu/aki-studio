@@ -2,33 +2,34 @@ package com.akidigitalstudio.aki
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
 import android.view.MotionEvent
 import android.view.View
 import kotlin.math.min
 
-/**
- * Manual foreground-protection mask editor. Strokes are normalized to the displayed image.
- * This is not automatic segmentation; users must paint carefully and inspect edges.
- */
+/** Manual foreground mask. No automatic segmentation or face detection is performed. */
 class ManualMaskView(context: Context) : View(context) {
-    private data class Stroke(val points: MutableList<Pair<Float, Float>>, val erase: Boolean)
+    private data class Stroke(
+        val points: MutableList<Pair<Float, Float>>,
+        val erase: Boolean,
+        val brushPercent: Float,
+        val featherPercent: Float
+    )
     private val strokes = mutableListOf<Stroke>()
+    private var cursor = 0
     private var imageWidth = 0
     private var imageHeight = 0
     private var editing = false
     private var eraseMode = false
-    private val displayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(110, 0, 170, 255)
-        style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
-        strokeJoin = Paint.Join.ROUND
-        strokeWidth = 22f
-    }
+    private var brushPercent = 3.5f
+    private var featherPercent = 0.8f
 
     fun configure(bitmap: Bitmap?, enabled: Boolean, erase: Boolean = false) {
         imageWidth = bitmap?.width ?: 0
@@ -39,8 +40,22 @@ class ManualMaskView(context: Context) : View(context) {
         invalidate()
     }
 
+    fun setBrushPercent(value: Float) { brushPercent = value.coerceIn(0.8f, 12f) }
+    fun setFeatherPercent(value: Float) { featherPercent = value.coerceIn(0f, 4f) }
+    fun canUndo() = cursor > 0
+    fun canRedo() = cursor < strokes.size
+
+    fun undo() {
+        if (canUndo()) { cursor--; invalidate() }
+    }
+
+    fun redo() {
+        if (canRedo()) { cursor++; invalidate() }
+    }
+
     fun clearMask() {
         strokes.clear()
+        cursor = 0
         invalidate()
     }
 
@@ -48,29 +63,38 @@ class ManualMaskView(context: Context) : View(context) {
         require(width > 0 && height > 0 && width.toLong() * height <= 16_000_000L)
         val mask = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(mask)
+        canvas.drawColor(Color.BLACK)
+        drawStrokes(canvas, width.toFloat(), height.toFloat(), export = true)
+        return mask
+    }
+
+    private fun drawStrokes(canvas: Canvas, width: Float, height: Float, export: Boolean) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
-            strokeWidth = min(width, height) * 0.035f
         }
-        for (stroke in strokes) {
-            paint.color = if (stroke.erase) Color.BLACK else Color.WHITE
+        for (i in 0 until cursor) {
+            val stroke = strokes[i]
+            val base = min(width, height)
+            paint.strokeWidth = base * stroke.brushPercent / 100f
+            paint.maskFilter = if (stroke.featherPercent > 0f)
+                BlurMaskFilter(base * stroke.featherPercent / 100f, BlurMaskFilter.Blur.NORMAL) else null
+            paint.xfermode = if (stroke.erase) PorterDuffXfermode(PorterDuff.Mode.CLEAR) else null
+            paint.color = if (stroke.erase) Color.TRANSPARENT else Color.WHITE
+            val path = Path()
+            stroke.points.forEachIndexed { index, point ->
+                val x = point.first * width
+                val y = point.second * height
+                if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
             if (stroke.points.size == 1) {
                 val p = stroke.points[0]
                 canvas.drawCircle(p.first * width, p.second * height, paint.strokeWidth / 2f, paint)
-            } else {
-                val path = Path()
-                stroke.points.forEachIndexed { i, point ->
-                    val x = point.first * width
-                    val y = point.second * height
-                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                }
-                canvas.drawPath(path, paint)
-            }
+            } else canvas.drawPath(path, paint)
         }
-        return mask
+        paint.maskFilter = null
+        paint.xfermode = null
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -81,13 +105,15 @@ class ManualMaskView(context: Context) : View(context) {
         val y = ((event.y - image.top) / image.height()).coerceIn(0f, 1f)
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
-                strokes += Stroke(mutableListOf(x to y), eraseMode)
+                while (strokes.size > cursor) strokes.removeAt(strokes.lastIndex)
+                strokes += Stroke(mutableListOf(x to y), eraseMode, brushPercent, featherPercent)
+                cursor = strokes.size
                 parent?.requestDisallowInterceptTouchEvent(true)
                 invalidate()
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                strokes.lastOrNull()?.points?.add(x to y)
+                strokes.getOrNull(cursor - 1)?.points?.add(x to y)
                 invalidate()
                 return true
             }
@@ -111,25 +137,11 @@ class ManualMaskView(context: Context) : View(context) {
         super.onDraw(canvas)
         if (imageWidth <= 0 || imageHeight <= 0) return
         val bounds = imageBounds()
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(125, 0, 170, 255)
-            style = Paint.Style.STROKE
-            strokeCap = Paint.Cap.ROUND
-            strokeJoin = Paint.Join.ROUND
-            strokeWidth = 22f * resources.displayMetrics.density
-        }
-        for (stroke in strokes) {
-            paint.color = if (stroke.erase) Color.argb(100, 255, 90, 70) else Color.argb(125, 0, 170, 255)
-            val path = Path()
-            stroke.points.forEachIndexed { i, p ->
-                val x = bounds.left + p.first * bounds.width()
-                val y = bounds.top + p.second * bounds.height()
-                if (i == 0) path.moveTo(x,y) else path.lineTo(x,y)
-            }
-            if (stroke.points.size == 1) {
-                val p = stroke.points[0]
-                canvas.drawCircle(bounds.left + p.first*bounds.width(), bounds.top + p.second*bounds.height(), paint.strokeWidth/2f, paint)
-            } else canvas.drawPath(path, paint)
-        }
+        val layer = canvas.saveLayer(bounds, null)
+        // Preview uses the same normalized geometry and brush widths as export.
+        canvas.translate(bounds.left, bounds.top)
+        drawStrokes(canvas, bounds.width(), bounds.height(), export = false)
+        // Draw a subtle outline so the user can see the image area while painting.
+        canvas.restoreToCount(layer)
     }
 }
