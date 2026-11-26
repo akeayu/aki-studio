@@ -158,15 +158,14 @@ object DesignLayerRenderer {
             if (layer.kind == "TEXT") {
                 val style = (if (layer.bold) Typeface.BOLD else Typeface.NORMAL) or
                     (if (layer.italic) Typeface.ITALIC else Typeface.NORMAL)
-                val family = when (layer.fontFamily) {
-                    "SERIF" -> Typeface.SERIF
-                    "MONOSPACE" -> Typeface.MONOSPACE
-                    "CONDENSED" -> "sans-serif-condensed"
-                    "MEDIUM" -> "sans-serif-medium"
-                    "ETHIOPIC_SYSTEM" -> "sans-serif"
-                    else -> Typeface.SANS_SERIF
+                val typeface = when (layer.fontFamily) {
+                    "SERIF" -> Typeface.create(Typeface.SERIF, style)
+                    "MONOSPACE" -> Typeface.create(Typeface.MONOSPACE, style)
+                    "CONDENSED" -> Typeface.create("sans-serif-condensed", style)
+                    "MEDIUM" -> Typeface.create("sans-serif-medium", style)
+                    "ETHIOPIC_SYSTEM" -> Typeface.create("sans-serif", style)
+                    else -> Typeface.create(Typeface.SANS_SERIF, style)
                 }
-                val typeface = Typeface.create(family, style)
                 val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = layer.fillColor
                     this.alpha = (alpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
