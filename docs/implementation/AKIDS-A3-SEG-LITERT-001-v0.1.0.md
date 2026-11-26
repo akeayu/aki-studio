@@ -40,7 +40,7 @@ Consequently:
 3. The adapter's result confidence field is a compatibility placeholder, not a calibrated score. UI must not present it as measured certainty.
 4. The adapter is not yet tested against a real model binary, Android build, emulator, or physical device.
 5. The 256×256 model is not a portrait-matting guarantee and cannot certify official ID/passport compliance.
-6. Tensor allocations and mask resizing need profiling on low-memory Android devices.
+7. Tensor allocations and mask resizing need profiling on low-memory Android devices.
 
 ## Verification status
 
@@ -65,3 +65,8 @@ Consequently:
 ## Gate decision
 
 This is a bounded A3 integration spike. Do not call the MediaPipe model integrated, operational, or production-ready until the exact binary and license notices are vendored, the checksum is independently verified, Gradle builds, and CPU inference is tested on API 29+ devices. Keep the heuristic and manual editing paths enabled.
+
+
+## Follow-up source correction
+
+The adapter now maps the full source frame to and from the square tensor instead of center-cropping. This avoids leaving unsegmented border regions, at the cost of aspect-ratio distortion during model inference. Interpreter instances that fail tensor validation are now explicitly closed. These are source-level corrections only; they have not been built or runtime-tested.
