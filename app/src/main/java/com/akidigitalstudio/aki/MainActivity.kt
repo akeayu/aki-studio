@@ -66,7 +66,7 @@ class MainActivity : Activity() {
         page.addView(heading)
         page.addView(tagline)
         page.addView(preview, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(320)
         ).apply { topMargin = dp(18); bottomMargin = dp(10) })
         page.addView(status)
 
