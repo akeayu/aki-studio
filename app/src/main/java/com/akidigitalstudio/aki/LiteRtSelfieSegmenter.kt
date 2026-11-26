@@ -57,24 +57,16 @@ class LiteRtSelfieSegmenter private constructor(
         val squareMask = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888)
         squareMask.setPixels(maskPixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
 
-        // Map the square model output back to the center-square source region.
-        val side = minOf(source.width, source.height)
-        val left = (source.width - side) / 2
-        val top = (source.height - side) / 2
+        // Resize the complete source field into model coordinates and map the mask back.
+        // This can distort aspect ratio; it avoids silently excluding border regions.
         val sourceMask = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
-        val scaled = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
-        android.graphics.Canvas(scaled).drawBitmap(
+        android.graphics.Canvas(sourceMask).drawBitmap(
             squareMask,
             null,
-            android.graphics.Rect(0, 0, side, side),
+            android.graphics.Rect(0, 0, source.width, source.height),
             android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
         )
         squareMask.recycle()
-        val canvas = android.graphics.Canvas(sourceMask)
-        // Outside the model's center-square field of view, preserve pixels as foreground.
-        canvas.drawColor(Color.WHITE)
-        canvas.drawBitmap(scaled, left.toFloat(), top.toFloat(), null)
-        scaled.recycle()
 
         return SegmentationResult(
             foregroundMask = sourceMask,
@@ -94,21 +86,14 @@ class LiteRtSelfieSegmenter private constructor(
     }
 
     private fun centerSquare(source: Bitmap): Bitmap {
-        val side = minOf(source.width, source.height)
-        val left = (source.width - side) / 2
-        val top = (source.height - side) / 2
-        val crop = Bitmap.createBitmap(source, left, top, side, side)
-        return try {
-            Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888).also { resized ->
-                android.graphics.Canvas(resized).drawBitmap(
-                    crop,
-                    null,
-                    android.graphics.Rect(0, 0, INPUT_SIZE, INPUT_SIZE),
-                    android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
-                )
-            }
-        } finally {
-            crop.recycle()
+        // Full-frame resize matches the model's fixed square tensor contract.
+        return Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888).also { resized ->
+            android.graphics.Canvas(resized).drawBitmap(
+                source,
+                null,
+                android.graphics.Rect(0, 0, INPUT_SIZE, INPUT_SIZE),
+                android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+            )
         }
     }
 
@@ -131,8 +116,13 @@ class LiteRtSelfieSegmenter private constructor(
                 )
                 val options = Interpreter.Options().apply { setNumThreads(2) }
                 val interpreter = Interpreter(model, options)
-                validateTensorShapes(interpreter)
-                LiteRtSelfieSegmenter(interpreter)
+                try {
+                    validateTensorShapes(interpreter)
+                    LiteRtSelfieSegmenter(interpreter)
+                } catch (error: Exception) {
+                    interpreter.close()
+                    throw error
+                }
             } catch (_: Exception) {
                 null
             } finally {
