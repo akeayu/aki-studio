@@ -48,6 +48,7 @@ object DesignLayerDocument {
     /** Compact, bounded, dependency-free serialization for Android and local JVM tests. */
     fun encode(layers: List<DesignLayer>): String {
         require(layers.size <= MAX_LAYERS) { "A design can contain at most $MAX_LAYERS layers" }
+        require(layers.map { it.id }.distinct().size == layers.size) { "Layer identifiers must be unique" }
         val bytes = java.io.ByteArrayOutputStream()
         java.io.DataOutputStream(bytes).use { out ->
             out.writeInt(SCHEMA_VERSION)
@@ -92,6 +93,7 @@ object DesignLayerDocument {
             ).validated()
         }
         require(input.available() == 0) { "Unexpected data after design layer document" }
+        require(result.map { it.id }.distinct().size == result.size) { "Duplicate layer identifiers" }
         return result
     }
 }
@@ -127,6 +129,7 @@ object DesignLayerRenderer {
                 lines.forEachIndexed { index, line ->
                     canvas.drawText(line.take(80), rect.centerX(), baseline + index * lineHeight, paint)
                 }
+                canvas.restore()
             } else {
                 val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = layer.fillColor
