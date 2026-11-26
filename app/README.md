@@ -67,6 +67,13 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 - Repeats the current edited image with basic borders and cut marks.
 - PDF is saved under `Documents/Aki Studio`.
 
+### Direct manipulation
+- Select the topmost visible layer on the preview.
+- Drag inside the selection to move it; drag any corner handle to resize; use the top handle to rotate.
+- Position snaps to canvas center axes and rotation snaps to 15-degree increments.
+- A completed gesture creates one edit-history step.
+- Layer schema v2 persists rotation and continues to decode v1 project layer payloads.
+
 ### Layer-based Design Studio
 - A versioned, non-destructive design document supports up to 30 editable layers.
 - Typography layers support editable text, multiline content, system sans-serif, bold and italic styling.
