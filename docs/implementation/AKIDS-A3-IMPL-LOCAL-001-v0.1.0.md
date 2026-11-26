@@ -26,17 +26,18 @@ The branch introduces:
 - No INTERNET permission in the manifest.
 - System document picker for explicit image selection.
 - Bounded software bitmap decode for preview.
-- 90-degree rotation, monochrome conversion and reset operations.
-- Original source remains unchanged; edits are applied to in-memory derivatives.
+- 90-degree rotation, center-crop aspect ratios (original, 1:1, 3:4, 4:5, 5:4 and 16:9), monochrome conversion and reset operations.
+- ID/passport dimension presets: 35 × 45 mm exported at 413 × 531 px and 2 × 2 inch exported at 600 × 600 px (pixel dimensions calculated for 300 DPI).
+- Original source remains unchanged; edits are reconstructed from the selected source URI as in-memory derivatives.
 - Save-copy operation to Pictures/Aki Studio using MediaStore.
 - Amharic-first visible controls with an English language toggle.
 - Bounded memory-oriented preview/export decode dimensions.
 
 ## 3. Explicit limitations
 
-This is not the complete Aki Studio product. It does not yet implement full-resolution non-destructive edit documents, crop/resize controls, ID/passport presets, camera capture, background segmentation, portrait retouching, layers, frames, print-sheet composition, PDF export, project persistence, undo history, accessibility audit or image-quality evaluation.
+This is not the complete Aki Studio product. It does not yet implement full-resolution non-destructive edit documents, draggable crop positioning, arbitrary crop coordinates, custom resize dimensions, jurisdiction-verified official-document specifications, camera capture, background segmentation, portrait retouching, layers, frames, print-sheet composition, PDF export, project persistence, undo history, accessibility audit or image-quality evaluation.
 
-Preview decode is bounded to 1,800 pixels on the longest edge. Saved output is bounded to 4,096 pixels on the longest edge. The output is a new JPEG copy; the original is not overwritten. The current implementation has not been built or tested on a physical Android device in this work record.
+Preview decode is bounded to 1,800 pixels on the longest edge. General export decode is bounded to 4,096 pixels on the longest edge; the two ID presets then scale the cropped derivative to their fixed output pixel dimensions. Those pixel dimensions are calculated for 300 DPI, but the JPEG does not yet carry verified 300-DPI resolution metadata. The presets are dimensional helpers only and do not claim compliance with any issuing authority's photo rules. The output is a new JPEG copy; the original is not overwritten. The current implementation has not been built or tested on a physical Android device in this work record.
 
 ## 4. Runtime privacy boundary
 
