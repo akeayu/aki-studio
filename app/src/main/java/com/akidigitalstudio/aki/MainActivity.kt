@@ -903,6 +903,7 @@ class MainActivity : Activity() {
         originalPreviewBitmap = null
         autoMaskBitmap?.recycle(); autoMaskBitmap = null
         autoPreviewBitmap?.recycle(); autoPreviewBitmap = null
+        if (::maskOverlay.isInitialized) maskOverlay.clearMask()
         super.onDestroy()
     }
 
