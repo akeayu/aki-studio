@@ -802,8 +802,43 @@ class MainActivity : Activity() {
             setPadding(dp(20), dp(8), dp(20), 0)
             listOf(name, x, y, width, height, opacity, visible, locked).forEach { addView(it) }
         }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(layer.name)
+            .setView(fields)
+            .setNegativeButton(if (english) "Close" else "ዝጋ", null)
+            .setNeutralButton(if (english) "More actions" else "ተጨማሪ ተግባራት") { _, _ -> showDesignLayerActions(index) }
+            .setPositiveButton(if (english) "Save properties" else "ባህሪያት አስቀምጥ", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val nx = name.text.toString().trim()
+                val px = x.text.toString().toIntOrNull()
+                val py = y.text.toString().toIntOrNull()
+                val pw = width.text.toString().toIntOrNull()
+                val ph = height.text.toString().toIntOrNull()
+                val po = opacity.text.toString().toIntOrNull()
+                if (nx.isBlank() || nx.length > 48 || px == null || px !in 0..100 ||
+                    py == null || py !in 0..100 || pw == null || pw !in 1..100 ||
+                    ph == null || ph !in 1..100 || po == null || po !in 0..100) {
+                    showStatus(if (english) "Layer properties are outside their allowed ranges." else "የንብርብር ባህሪያት ከተፈቀደው ክልል ውጭ ናቸው።")
+                    return@setOnClickListener
+                }
+                designLayers[index] = layer.copy(
+                    name = nx, x = px / 100f, y = py / 100f,
+                    width = pw / 100f, height = ph / 100f,
+                    opacity = po / 100f, visible = visible.isChecked, locked = locked.isChecked
+                ).validated()
+                dialog.dismiss()
+                refreshPreview()
+            }
+        }
+        dialog.show()
+    }
+
+    private fun showDesignLayerActions(index: Int) {
+        if (index !in designLayers.indices) return
+        val layer = designLayers[index]
         val actions = arrayOf(
-            if (english) "Save properties" else "ባህሪያት አስቀምጥ",
             if (english) "Edit text" else "ጽሑፍ አስተካክል",
             if (english) "Move up" else "ወደ ላይ አንቀሳቅስ",
             if (english) "Move down" else "ወደ ታች አንቀሳቅስ",
@@ -813,29 +848,15 @@ class MainActivity : Activity() {
             .setTitle(layer.name)
             .setItems(actions) { _, action ->
                 when (action) {
-                    0 -> {
-                        val nx = name.text.toString().trim()
-                        val px = x.text.toString().toIntOrNull()
-                        val py = y.text.toString().toIntOrNull()
-                        val pw = width.text.toString().toIntOrNull()
-                        val ph = height.text.toString().toIntOrNull()
-                        val po = opacity.text.toString().toIntOrNull()
-                        if (nx.isBlank() || nx.length > 48 || px !in 0..100 || py !in 0..100 ||
-                            pw !in 1..100 || ph !in 1..100 || po !in 0..100) {
-                            showStatus(if (english) "Layer properties are outside their allowed ranges." else "የንብርብር ባህሪያት ከተፈቀደው ክልል ውጭ ናቸው።")
-                            return@setItems
-                        }
-                        designLayers[index] = layer.copy(
-                            name = nx, x = px!! / 100f, y = py!! / 100f,
-                            width = pw!! / 100f, height = ph!! / 100f,
-                            opacity = po!! / 100f, visible = visible.isChecked, locked = locked.isChecked
-                        ).validated()
-                        refreshPreview()
+                    0 -> if (layer.kind == "TEXT") editLayerText(index)
+                         else showStatus(if (english) "This layer is a vector shape." else "ይህ ንብርብር ቬክተር ቅርጽ ነው።")
+                    1 -> if (index < designLayers.lastIndex) {
+                        val item = designLayers.removeAt(index); designLayers.add(index + 1, item); refreshPreview()
                     }
-                    1 -> if (layer.kind == "TEXT") editLayerText(index) else showStatus(if (english) "This layer is a vector shape." else "ይህ ንብርብር ቬክተር ቅርጽ ነው።")
-                    2 -> { if (index < designLayers.lastIndex) { val item = designLayers.removeAt(index); designLayers.add(index + 1, item); refreshPreview() } }
-                    3 -> { if (index > 0) { val item = designLayers.removeAt(index); designLayers.add(index - 1, item); refreshPreview() } }
-                    4 -> AlertDialog.Builder(this)
+                    2 -> if (index > 0) {
+                        val item = designLayers.removeAt(index); designLayers.add(index - 1, item); refreshPreview()
+                    }
+                    3 -> AlertDialog.Builder(this)
                         .setMessage(if (english) "Delete this design layer?" else "ይህ የዲዛይን ንብርብር ይሰረዝ?")
                         .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
                         .setPositiveButton(if (english) "Delete" else "ሰርዝ") { _, _ ->
@@ -845,7 +866,6 @@ class MainActivity : Activity() {
                 }
             }
             .setNegativeButton(if (english) "Close" else "ዝጋ", null)
-            .setView(fields)
             .show()
     }
 
