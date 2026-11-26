@@ -71,7 +71,7 @@ object DesignLayerDocument {
 
     fun decode(serialized: String?): MutableList<DesignLayer> {
         if (serialized.isNullOrBlank()) return mutableListOf()
-        require(serialized.length <= 48_000) { "Design layer document is too large" }
+        require(serialized.length <= 128_000) { "Design layer document is too large" }
         val bytes = try { java.util.Base64.getDecoder().decode(serialized) }
             catch (_: IllegalArgumentException) { throw IllegalArgumentException("Invalid design layer encoding") }
         val input = java.io.DataInputStream(bytes.inputStream())
