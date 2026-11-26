@@ -120,18 +120,18 @@ object LocalProjectStore {
         require(p.getProperty("id") == summary.id) { "Project identifier does not match its manifest" }
         val source = File(summary.directory, SOURCE)
         require(source.isFile && source.length() in 1..MAX_SOURCE_BYTES) { "Project original image is missing or exceeds the size limit" }
+        val values = p.stringPropertyNames()
+            .filter { it.startsWith("edit.") }
+            .associate { it.removePrefix("edit.") to p.getProperty(it) }
+        validateEditValues(values)
+        require(values["backgroundReplaceEnabled"] != "true" || p.getProperty("hasMask") == "true") {
+            "Project background replacement is enabled but its mask is missing"
+        }
         val mask = if (p.getProperty("hasMask") == "true") {
             val file = File(summary.directory, MASK)
             require(file.isFile) { "Project mask is missing" }
             BitmapFactory.decodeFile(file.absolutePath) ?: throw IllegalStateException("Project mask is invalid")
         } else null
-        val values = p.stringPropertyNames()
-            .filter { it.startsWith("edit.") }
-            .associate { it.removePrefix("edit.") to p.getProperty(it) }
-        require(values["backgroundReplaceEnabled"] != "true" || mask != null) {
-            "Project background replacement is enabled but its mask is missing"
-        }
-        validateEditValues(values)
         return ProjectData(summary, source, values, mask)
     }
 
@@ -161,6 +161,10 @@ object LocalProjectStore {
         }
         values["headHeightPercent"]?.toIntOrNull()?.let { require(it in 40..90) { "Invalid head guide" } }
         values["eyeLinePercent"]?.toIntOrNull()?.let { require(it in 20..70) { "Invalid eye guide" } }
+        values["brightness"]?.toIntOrNull()?.let { require(it in -100..100) { "Invalid brightness" } }
+        values["contrast"]?.toIntOrNull()?.let { require(it in -100..100) { "Invalid contrast" } }
+        values["saturation"]?.toIntOrNull()?.let { require(it in 0..200) { "Invalid saturation" } }
+        values["warmth"]?.toIntOrNull()?.let { require(it in -100..100) { "Invalid warmth" } }
     }
 
     fun duplicate(root: File, summary: ProjectSummary): ProjectSummary {
@@ -177,8 +181,16 @@ object LocalProjectStore {
     fun rename(summary: ProjectSummary, newName: String): ProjectSummary {
         val safeName = newName.trim().take(60)
         require(safeName.isNotBlank()) { "Project name is required" }
+        val expectedParent = File(summary.directory.parentFile, summary.id).canonicalFile
+        require(summary.directory.canonicalFile == expectedParent && summary.directory.parentFile?.name == "projects") {
+            "Project directory is outside the private project store"
+        }
         val manifest = File(summary.directory, MANIFEST)
+        require(manifest.isFile) { "Project manifest is missing" }
         val properties = Properties().apply { FileInputStream(manifest).use(::load) }
+        require(properties.getProperty("id") == summary.id && properties.getProperty("schemaVersion") == "1") {
+            "Project identity or schema does not match"
+        }
         val now = System.currentTimeMillis()
         properties.setProperty("name", safeName)
         properties.setProperty("updatedAt", now.toString())
