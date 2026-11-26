@@ -116,6 +116,10 @@ class MainActivity : Activity() {
         row4.addView(actionButton(if (english) "Print sheet PDF" else "የህትመት PDF") { configurePrintSheet() }, weighted())
         page.addView(row4)
 
+        val row5 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        row5.addView(actionButton(if (english) "Photo standard" else "የፎቶ መስፈርት") { configurePhotoSpecification() }, weighted())
+        page.addView(row5)
+
         val language = Button(this).apply {
             text = if (english) "አማርኛ" else "English"
             setOnClickListener {
@@ -449,6 +453,82 @@ class MainActivity : Activity() {
         }
     }
 
+
+    private fun configurePhotoSpecification() {
+        if (sourceUri == null) return noPhoto()
+        val fields = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+        }
+        val nameInput = EditText(this).apply {
+            hint = if (english) "Template name (e.g. personal 35 × 45 mm)" else "የመመሪያ ስም (ለምሳሌ 35 × 45 ሚሜ)"
+        }
+        val widthInput = EditText(this).apply {
+            hint = if (english) "Photo width (mm)" else "የፎቶ ስፋት (ሚሜ)"
+            inputType = InputType.TYPE_CLASS_NUMBER
+        }
+        val heightInput = EditText(this).apply {
+            hint = if (english) "Photo height (mm)" else "የፎቶ ቁመት (ሚሜ)"
+            inputType = InputType.TYPE_CLASS_NUMBER
+        }
+        val headInput = EditText(this).apply {
+            hint = if (english) "Head height (% of photo)" else "የጭንቅላት ቁመት (%)"
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(headHeightPercent.toString())
+        }
+        val eyeInput = EditText(this).apply {
+            hint = if (english) "Eye-line from top (%)" else "የዓይን መስመር (%)"
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(eyeLinePercent.toString())
+        }
+        fields.addView(TextView(this).apply {
+            text = if (english)
+                "Create a user-defined guide only. No issuing authority or verified official standard is supplied. Values are visual aids, not compliance certification."
+            else
+                "ይህ በተጠቃሚ የሚዘጋጅ መመሪያ ብቻ ነው። የሰጪ ባለሥልጣን ወይም የተረጋገጠ ይፋዊ መስፈርት አልተገለጸም። የሚታዩት መመሪያዎች የማረጋገጫ ማስረጃ አይደሉም።"
+            textSize = 13f
+        })
+        listOf(nameInput, widthInput, heightInput, headInput, eyeInput).forEach(fields::addView)
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(if (english) "User-defined photo template" else "በተጠቃሚ የሚዘጋጅ የፎቶ መመሪያ")
+            .setView(fields)
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Apply guide" else "መመሪያውን ተግብር", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val name = nameInput.text.toString().trim()
+                val widthMm = widthInput.text.toString().toIntOrNull()
+                val heightMm = heightInput.text.toString().toIntOrNull()
+                val head = headInput.text.toString().toIntOrNull()
+                val eye = eyeInput.text.toString().toIntOrNull()
+                if (name.isBlank() || name.length > 60 || widthMm == null || heightMm == null ||
+                    widthMm !in 10..100 || heightMm !in 10..150 || head == null || head !in 40..90 ||
+                    eye == null || eye !in 20..70) {
+                    showStatus(if (english) "Enter a name, width 10–100 mm, height 10–150 mm, head 40–90%, and eye line 20–70%." else "ስም፣ ስፋት 10–100 ሚሜ፣ ቁመት 10–150 ሚሜ፣ ጭንቅላት 40–90% እና የዓይን መስመር 20–70% ያስገቡ።")
+                    return@setOnClickListener
+                }
+                val ratio = widthMm.toFloat() / heightMm.toFloat()
+                val widthPx = (widthMm / 25.4f * 300f).toInt().coerceAtLeast(1)
+                val heightPx = (heightMm / 25.4f * 300f).toInt().coerceAtLeast(1)
+                if (widthPx.toLong() * heightPx.toLong() > 4_000_000L) {
+                    showStatus(if (english) "Template output exceeds the safe pixel limit." else "የመመሪያው የፒክስል ውጤት የደህንነት ገደብን አልፏል።")
+                    return@setOnClickListener
+                }
+                applyPreset(ratio, widthPx, heightPx, "$name — USER-DEFINED / UNVERIFIED")
+                headHeightPercent = head
+                eyeLinePercent = eye
+                guidesVisible = true
+                guideOverlay.configure(previewBitmap, head, eye, true)
+                dialog.dismiss()
+                showStatus(if (english)
+                    "User-defined guide applied at nominal 300-DPI pixel dimensions. Not an official or verified standard."
+                else
+                    "በተጠቃሚ የተዘጋጀው መመሪያ ተግብሯል። የ300 DPI የፒክስል ስሌት ብቻ ነው፤ ይፋዊ ወይም የተረጋገጠ መስፈርት አይደለም።")
+            }
+        }
+        dialog.show()
+    }
 
     private fun configurePhotoGuides() {
         if (sourceUri == null) return noPhoto()
