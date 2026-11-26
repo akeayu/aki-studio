@@ -34,7 +34,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.Executor
-import java.util.function.Consumer
+import androidx.core.util.Consumer
 import androidx.window.java.layout.WindowInfoTrackerCallbackAdapter
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
@@ -93,7 +93,7 @@ class MainActivity : Activity() {
     private var foldConsumer: Consumer<WindowLayoutInfo>? = null
     private var foldBounds: Rect? = null
     private var foldSeparating = false
-    private var foldOrientation: Int? = null
+    private var foldOrientation: FoldingFeature.Orientation? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -486,14 +486,14 @@ class MainActivity : Activity() {
         if (profile.widthClass == WindowWidthClass.EXPANDED) {
             val shell = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setBackgroundColor(AkiStudioUi.INK) }
             val density = resources.displayMetrics.density
-            val verticalHinge = foldSeparating && foldOrientation == FoldingFeature.ORIENTATION_VERTICAL
+            val verticalHinge = foldSeparating && foldOrientation == FoldingFeature.Orientation.VERTICAL
             val railWidth = if (verticalHinge && foldBounds != null)
                 (foldBounds!!.left / density).toInt().coerceIn(76, 220) else 104
             shell.addView(navigation, LinearLayout.LayoutParams(dp(railWidth), ViewGroup.LayoutParams.MATCH_PARENT))
             if (verticalHinge && foldBounds != null) {
                 shell.addView(View(this), LinearLayout.LayoutParams(dp((foldBounds!!.width() / density).toInt().coerceAtLeast(1)), 1))
             }
-            if (foldSeparating && foldOrientation == FoldingFeature.ORIENTATION_HORIZONTAL && foldBounds != null) {
+            if (foldSeparating && foldOrientation == FoldingFeature.Orientation.HORIZONTAL && foldBounds != null) {
                 scroll.setPadding(0, dp((foldBounds!!.bottom / density).toInt()), 0, 0)
             }
             shell.addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
@@ -1371,7 +1371,7 @@ class MainActivity : Activity() {
             addView(locked)
         }
         var activeLayerDialog: AlertDialog? = null
-        val presetList = DesignStylePresetStore.all(this)
+        val presetList = DesignStylePreset.all(this)
         val presetPicker = android.widget.Spinner(this).apply {
             adapter = android.widget.ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, presetList.map { it.name })
         }
@@ -1402,7 +1402,7 @@ class MainActivity : Activity() {
                 AlertDialog.Builder(this).setTitle(if (english) "Save current layer style" else "የአሁኑን ቅጥ አስቀምጥ")
                     .setView(input).setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
                     .setPositiveButton(if (english) "Save" else "አስቀምጥ") { _, _ ->
-                        val ok = DesignStylePresetStore.save(this, DesignStylePresetStore.fromLayer(input.text.toString().trim(), designLayers[index]))
+                        val ok = DesignStylePreset.save(this, DesignStylePreset.fromLayer(input.text.toString().trim(), designLayers[index]))
                         showStatus(if (ok) (if (english) "Style preset saved on this device." else "የቅጥ አማራጩ በዚህ መሣሪያ ተቀምጧል።") else (if (english) "Preset name invalid or local preset limit reached." else "የቅጥ ስም ትክክል አይደለም ወይም ገደቡ ደርሷል።"))
                     }.show()
             }
