@@ -61,7 +61,6 @@ object DesignLayerDocument {
     const val MAX_LAYERS = 30
     const val SCHEMA_VERSION = 3
 
-    /** Compact, bounded, dependency-free serialization for Android and local JVM tests. */
     fun encode(layers: List<DesignLayer>): String {
         require(layers.size <= MAX_LAYERS) { "A design can contain at most $MAX_LAYERS layers" }
         require(layers.map { it.id }.distinct().size == layers.size) { "Layer identifiers must be unique" }
@@ -87,7 +86,9 @@ object DesignLayerDocument {
                 out.writeUTF(l.pathData)
             }
         }
-        return java.util.Base64.getEncoder().encodeToString(bytes.toByteArray())
+        val encoded = java.util.Base64.getEncoder().encodeToString(bytes.toByteArray())
+        require(encoded.length <= 128_000) { "Design layer document exceeds the storage limit" }
+        return encoded
     }
 
     fun decode(serialized: String?): MutableList<DesignLayer> {
@@ -152,7 +153,7 @@ object DesignLayerRenderer {
             val left = (layer.x - layer.width / 2f) * source.width
             val top = (layer.y - layer.height / 2f) * source.height
             val rect = RectF(left, top, left + layer.width * source.width, top + layer.height * source.height)
-            val alpha = (layer.opacity * 255f).toInt().coerceIn(0, 255)
+            val layerAlpha = (layer.opacity * 255f).toInt().coerceIn(0, 255)
             canvas.save()
             canvas.rotate(layer.rotationDegrees, rect.centerX(), rect.centerY())
             if (layer.kind == "TEXT") {
@@ -168,7 +169,7 @@ object DesignLayerRenderer {
                 }
                 val textPaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = layer.fillColor
-                    alpha = (alpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
+                    alpha = (layerAlpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
                     textSize = layer.fontScale * shortEdge
                     this.typeface = typeface
                     textAlign = Paint.Align.LEFT
@@ -198,12 +199,12 @@ object DesignLayerRenderer {
                     }
                     "OUTLINE" -> {
                         textPaint.color = layer.effectColor
-                        textPaint.alpha = (alpha * android.graphics.Color.alpha(layer.effectColor) / 255f).toInt()
+                        textPaint.alpha = (layerAlpha * android.graphics.Color.alpha(layer.effectColor) / 255f).toInt()
                         textPaint.style = Paint.Style.STROKE
                         textPaint.strokeWidth = maxOf(1f, layer.effectWidth * shortEdge)
                         layout.draw(canvas)
                         textPaint.color = layer.fillColor
-                        textPaint.alpha = (alpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
+                        textPaint.alpha = (layerAlpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
                         textPaint.style = Paint.Style.FILL
                         layout.draw(canvas)
                     }
@@ -211,19 +212,14 @@ object DesignLayerRenderer {
                 }
                 canvas.restore()
             } else {
-                        canvas.drawText(line.take(80), textX, y, paint)
-                    }
-                }
-                canvas.restore()
-            } else {
                 val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = layer.fillColor
-                    this.alpha = (alpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
+                    alpha = (layerAlpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
                     style = Paint.Style.FILL
                 }
                 val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = layer.strokeColor
-                    this.alpha = (alpha * android.graphics.Color.alpha(layer.strokeColor) / 255f).toInt()
+                    alpha = (layerAlpha * android.graphics.Color.alpha(layer.strokeColor) / 255f).toInt()
                     style = Paint.Style.STROKE
                     strokeWidth = layer.strokeWidth * shortEdge
                 }
