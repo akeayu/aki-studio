@@ -113,6 +113,14 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 - No national ID/passport standard has been independently verified and marked authority-verified.
 - Photo-quality thresholds and segmentation quality have not been validated on a representative, consented image corpus.
 
+## Continuous integration
+
+- `.github/workflows/android-verify.yml` runs JVM unit tests and assembles a debug APK on pushes to the A3 feature branch.
+- A separate API 29 Android emulator job runs the app-private project save/reopen instrumentation test.
+- The workflow uploads the debug APK as a build artifact.
+- This CI is build/test infrastructure only; the installed app remains local-only and does not add a network runtime dependency.
+- Workflow execution status must be checked from GitHub Actions; source creation alone is not proof that a run completed.
+
 ## Verification status
 
 | Verification | Status |
