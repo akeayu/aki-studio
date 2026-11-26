@@ -77,6 +77,7 @@ class MainActivity : Activity() {
     private val editHistory = EditHistory()
     private val designLayers = mutableListOf<DesignLayer>()
     private var suppressHistoryRecording = false
+    private var activeWorkspace = "All"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -148,6 +149,7 @@ class MainActivity : Activity() {
             })
         }
         page.addView(panelHost)
+        val workspacePanels = mutableListOf<Pair<String, View>>()
         var panelIndex = 0
 
         fun action(symbol: String, en: String, am: String, subEn: String, subAm: String, click: () -> Unit) =
@@ -156,16 +158,18 @@ class MainActivity : Activity() {
         fun panel(titleEn: String, titleAm: String, subEn: String, subAm: String, actions: List<AkiStudioUi.Action>) {
             val targetColumn = if (profile.panelColumns > 1 && panelIndex % 2 == 1) secondaryPanelColumn else primaryPanelColumn
             panelIndex += 1
-            targetColumn.addView(AkiStudioUi.panel(
+            val sectionView = AkiStudioUi.panel(
                 this,
                 if (english) titleEn else titleAm,
                 if (english) subEn else subAm,
                 actions,
                 english,
                 profile
-            ), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            )
+            targetColumn.addView(sectionView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(12)
             })
+            workspacePanels.add((if (english) titleEn else titleAm) to sectionView)
         }
 
         panel("Workspace", "የሥራ ቦታ", "Your projects and creative session", "ፕሮጀክቶችዎና የፈጠራ ሥራዎ",
@@ -226,6 +230,76 @@ class MainActivity : Activity() {
                 action("✥", "Transform layers", "ንብርብሮችን አንቀሳቅስ", "Drag, resize and rotate", "ጎትት፣ መጠን ቀይር፣ አዙር") { toggleDesignTransformMode() }
             )
         )
+
+        // Contextual command strip: common actions remain reachable from every workspace.
+        val commandStrip = android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                val commands = listOf(
+                    (if (english) "↶ Undo" else "↶ መልስ") to { undoEdit() },
+                    (if (english) "↷ Redo" else "↷ ድገም") to { redoEdit() },
+                    (if (english) "◉ Compare" else "◉ አወዳድር") to { toggleBeforeAfter() },
+                    (if (english) "⇧ Export" else "⇧ አውጣ") to { saveCopy() }
+                )
+                commands.forEach { (label, callback) ->
+                    addView(AkiStudioUi.toolbarButton(this@MainActivity, label, callback),
+                        LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(44)).apply {
+                            rightMargin = dp(7)
+                        })
+                }
+                if (profile.widthClass == WindowWidthClass.EXPANDED) {
+                    addView(AkiStudioUi.toolbarButton(this@MainActivity,
+                        if (english) "Layers" else "ንብርብሮች", { manageDesignLayers() }),
+                        LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(44)))
+                }
+            })
+        }
+        page.addView(commandStrip, 1)
+
+        // Workspace switcher acts as a compact navigation bar; selecting a section
+        // focuses its tools without destroying the editing session.
+        val navigation = android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                val labels = listOf(
+                    "All" to (if (english) "All" else "ሁሉም"),
+                    "Workspace" to (if (english) "Workspace" else "የሥራ ቦታ"),
+                    "Image Lab" to (if (english) "Image" else "ምስል"),
+                    "Portrait & ID" to (if (english) "Portrait / ID" else "ፖርትሬት"),
+                    "Background Lab" to (if (english) "Background" else "ጀርባ"),
+                    "Print Studio" to (if (english) "Print" else "ህትመት"),
+                    "Design Studio" to (if (english) "Design" else "ዲዛይን")
+                )
+                labels.forEach { (key, label) ->
+                    addView(AkiStudioUi.navigationChip(this@MainActivity, label, activeWorkspace == key) {
+                        activeWorkspace = key
+                        workspacePanels.forEach { (title, view) ->
+                            val match = when (key) {
+                                "All" -> true
+                                "Workspace" -> title == (if (english) "Workspace" else "የሥራ ቦታ")
+                                "Image Lab" -> title == (if (english) "Image Lab" else "የምስል ላብራቶሪ")
+                                "Portrait & ID" -> title == (if (english) "Portrait & ID" else "ፖርትሬትና መታወቂያ")
+                                "Background Lab" -> title == (if (english) "Background Lab" else "የጀርባ ላብራቶሪ")
+                                "Print Studio" -> title == (if (english) "Print Studio" else "የህትመት ስቱዲዮ")
+                                "Design Studio" -> title == (if (english) "Design Studio" else "የዲዛይን ስቱዲዮ")
+                                else -> false
+                            }
+                            view.visibility = if (match) View.VISIBLE else View.GONE
+                        }
+                        // Refresh selected state by rebuilding the lightweight shell only.
+                        buildScreen()
+                        renderPreview()
+                    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38)).apply {
+                        rightMargin = dp(6)
+                    })
+                }
+            })
+        }
+        page.addView(navigation, 1)
 
         page.addView(AkiStudioUi.spacer(this, 4))
         page.addView(AkiStudioUi.badge(this,
