@@ -61,9 +61,9 @@ object LocalProjectStore {
                 }
             }
             check(sourceFile.length() > 0L) { "Source image is empty" }
-            require(values.size <= 32 && values.all { (key, value) ->
-                key.matches(Regex("[A-Za-z][A-Za-z0-9]*")) && value.length <= 2048
-            }) { "Project edit settings are invalid" }
+            require(values.size <= 40 && values.all { (key, value) ->
+                key.matches(Regex("[A-Za-z][A-Za-z0-9]*")) && value.length <= 48_000
+            } && values.values.sumOf { it.length.toLong() } <= 96_000L) { "Project edit settings are invalid" }
             val maskFile = File(directory, MASK)
             val hasMask = mask?.let { bitmap ->
                 FileOutputStream(maskFile).use { output ->
@@ -136,6 +136,7 @@ object LocalProjectStore {
     }
 
     private fun validateEditValues(values: Map<String, String>) {
+        values["designLayers"]?.let { DesignLayerDocument.decode(it) }
         val rotation = values["rotation"]?.toFloatOrNull() ?: 0f
         require(rotation.isFinite() && rotation in 0f..270f && rotation % 90f == 0f) { "Invalid project rotation" }
         values["cropRatio"]?.takeIf { it.isNotBlank() }?.toFloatOrNull()?.let {
