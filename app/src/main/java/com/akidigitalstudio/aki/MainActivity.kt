@@ -453,28 +453,28 @@ class MainActivity : Activity() {
     private fun configurePhotoGuides() {
         if (sourceUri == null) return noPhoto()
         val fields = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
-        val headInput = EditText(this).apply { hint = "Head height (% of photo)"; inputType = InputType.TYPE_CLASS_NUMBER; setText(headHeightPercent.toString()) }
-        val eyeInput = EditText(this).apply { hint = "Eye-line from top (%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText(eyeLinePercent.toString()) }
+        val headInput = EditText(this).apply { hint = if (english) "Head height (% of photo)" else "የጭንቅላት ቁመት (% ከፎቶው)"; inputType = InputType.TYPE_CLASS_NUMBER; setText(headHeightPercent.toString()) }
+        val eyeInput = EditText(this).apply { hint = if (english) "Eye-line from top (%)" else "የዓይን መስመር ከላይ (%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText(eyeLinePercent.toString()) }
         fields.addView(TextView(this).apply {
-            text = "Position the subject manually: fit the head inside the oval and align the eyes with the horizontal line. No face detection is performed."
+            text = if (english) "Position the subject manually: fit the head inside the oval and align the eyes with the horizontal line. No face detection is performed." else "ሰውየውን በእጅ ያስተካክሉ፦ ጭንቅላቱን በኦቫሉ ውስጥ፣ ዓይኖቹንም ከአግድም መስመሩ ጋር ያስማሙ። የፊት ለይቶ ማወቅ አይከናወንም።"
             textSize = 13f
         })
         fields.addView(headInput); fields.addView(eyeInput)
-        val dialog = AlertDialog.Builder(this).setTitle("Head and eye-line guides").setView(fields)
-            .setNegativeButton("Cancel", null).setPositiveButton("Show guides", null)
-            .setNeutralButton("Hide", null).create()
+        val dialog = AlertDialog.Builder(this).setTitle(if (english) "Head and eye-line guides" else "የጭንቅላትና የዓይን መመሪያ").setView(fields)
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null).setPositiveButton(if (english) "Show guides" else "መመሪያዎችን አሳይ", null)
+            .setNeutralButton(if (english) "Hide" else "ደብቅ", null).create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val head = headInput.text.toString().toIntOrNull()
                 val eye = eyeInput.text.toString().toIntOrNull()
                 if (head == null || eye == null || head !in 40..90 || eye !in 20..70) {
-                    showStatus("Head height must be 40–90%; eye line must be 20–70%.")
+                    showStatus(if (english) "Head height must be 40–90%; eye line must be 20–70%." else "የጭንቅላት ቁመት 40–90%፣ የዓይን መስመር 20–70% መሆን አለበት።")
                     return@setOnClickListener
                 }
                 headHeightPercent = head; eyeLinePercent = eye; guidesVisible = true
                 guideOverlay.configure(previewBitmap, head, eye, true)
                 dialog.dismiss()
-                showStatus("Guides shown. Adjust the subject manually; these are framing aids, not official compliance checks.")
+                showStatus(if (english) "Guides shown. Adjust the subject manually; these are framing aids, not official compliance checks." else "መመሪያዎች ታይተዋል። ሰውየውን በእጅ ያስተካክሉ፤ እነዚህ የፍሬም እገዛዎች ናቸው እንጂ የመንግሥት መስፈርት ማረጋገጫ አይደሉም።")
             }
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
                 guidesVisible = false
@@ -488,21 +488,21 @@ class MainActivity : Activity() {
     private fun configurePrintSheet() {
         if (sourceUri == null) return noPhoto()
         val fields = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
-        val columnsInput = EditText(this).apply { hint = "Columns (1–5)"; inputType = InputType.TYPE_CLASS_NUMBER; setText("3") }
-        val rowsInput = EditText(this).apply { hint = "Rows (1–7)"; inputType = InputType.TYPE_CLASS_NUMBER; setText("4") }
+        val columnsInput = EditText(this).apply { hint = if (english) "Columns (1–5)" else "አምዶች (1–5)"; inputType = InputType.TYPE_CLASS_NUMBER; setText("3") }
+        val rowsInput = EditText(this).apply { hint = if (english) "Rows (1–7)" else "ረድፎች (1–7)"; inputType = InputType.TYPE_CLASS_NUMBER; setText("4") }
         fields.addView(TextView(this).apply {
-            text = "Create a single A4 portrait PDF page. The current edited photo repeats in equal cells with white margins and cut guides."
+            text = if (english) "Create a single A4 portrait PDF page. The current edited photo repeats in equal cells with white margins and cut guides." else "አንድ A4 ቁመታዊ PDF ገጽ ይፍጠሩ። አሁን ያለው የተስተካከለ ፎቶ በእኩል ሳጥኖች ይደገማል።"
             textSize = 13f
         })
         fields.addView(columnsInput); fields.addView(rowsInput)
-        val dialog = AlertDialog.Builder(this).setTitle("A4 print sheet").setView(fields)
-            .setNegativeButton("Cancel", null).setPositiveButton("Create PDF", null).create()
+        val dialog = AlertDialog.Builder(this).setTitle(if (english) "A4 print sheet" else "A4 የህትመት ወረቀት").setView(fields)
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null).setPositiveButton(if (english) "Create PDF" else "PDF ፍጠር", null).create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val columns = columnsInput.text.toString().toIntOrNull()
                 val rows = rowsInput.text.toString().toIntOrNull()
                 if (columns == null || rows == null || columns !in 1..5 || rows !in 1..7) {
-                    showStatus("Choose 1–5 columns and 1–7 rows.")
+                    showStatus(if (english) "Choose 1–5 columns and 1–7 rows." else "1–5 አምድ እና 1–7 ረድፍ ይምረጡ።")
                     return@setOnClickListener
                 }
                 dialog.dismiss()
@@ -553,12 +553,12 @@ class MainActivity : Activity() {
                 contentResolver.openOutputStream(uri)?.use { document.writeTo(it) } ?: throw IOException("Could not open PDF output")
                 values.clear(); values.put(MediaStore.MediaColumns.IS_PENDING, 0)
                 contentResolver.update(uri, values, null, null)
-                showStatus("A4 print sheet saved in Documents/Aki Studio (${columns} × ${rows}).")
+                showStatus(if (english) "A4 print sheet saved in Documents/Aki Studio (${columns} × ${rows})." else "A4 የህትመት ወረቀት በDocuments/Aki Studio ተቀምጧል (${columns} × ${rows})።")
             } catch (error: Exception) {
                 contentResolver.delete(uri, null, null); throw error
             }
         } catch (error: Exception) {
-            showStatus("PDF creation failed: ${error.message ?: "unknown error"}")
+            showStatus(if (english) "PDF creation failed: ${error.message ?: "unknown error"}" else "PDF መፍጠር አልተሳካም።")
         } finally {
             photo?.recycle(); document.close()
         }
