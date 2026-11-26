@@ -5,11 +5,15 @@ import android.app.AlertDialog
 import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.pdf.PdfDocument
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.view.Gravity
+import android.widget.FrameLayout
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
@@ -25,6 +29,7 @@ import kotlin.math.sqrt
 
 class MainActivity : Activity() {
     private lateinit var preview: ImageView
+    private lateinit var guideOverlay: GuideOverlayView
     private lateinit var status: TextView
     private var sourceUri: Uri? = null
     private var previewBitmap: Bitmap? = null
@@ -39,6 +44,9 @@ class MainActivity : Activity() {
     private var cropLabel: String? = null
     private var cropHorizontal = 0.5f
     private var cropVertical = 0.5f
+    private var guidesVisible = false
+    private var headHeightPercent = 70
+    private var eyeLinePercent = 42
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,7 +84,12 @@ class MainActivity : Activity() {
         }
         page.addView(heading)
         page.addView(tagline)
-        page.addView(preview, LinearLayout.LayoutParams(
+        guideOverlay = GuideOverlayView(this)
+        val previewFrame = FrameLayout(this).apply {
+            addView(preview, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            addView(guideOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
+        page.addView(previewFrame, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, dp(320)
         ).apply { topMargin = dp(18); bottomMargin = dp(10) })
         page.addView(status)
@@ -98,6 +111,10 @@ class MainActivity : Activity() {
         row3.addView(actionButton(if (english) "Reset" else "መልስ") { resetEdits() }, weighted())
         row3.addView(actionButton(if (english) "Save copy" else "ቅጂ አስቀምጥ") { saveCopy() }, weighted())
         page.addView(row3)
+        val row4 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        row4.addView(actionButton(if (english) "Photo guides" else "የፎቶ መመሪያ") { configurePhotoGuides() }, weighted())
+        row4.addView(actionButton(if (english) "Print sheet PDF" else "የህትመት PDF") { configurePrintSheet() }, weighted())
+        page.addView(row4)
 
         val language = Button(this).apply {
             text = if (english) "አማርኛ" else "English"
@@ -432,8 +449,124 @@ class MainActivity : Activity() {
         }
     }
 
+
+    private fun configurePhotoGuides() {
+        if (sourceUri == null) return noPhoto()
+        val fields = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
+        val headInput = EditText(this).apply { hint = "Head height (% of photo)"; inputType = InputType.TYPE_CLASS_NUMBER; setText(headHeightPercent.toString()) }
+        val eyeInput = EditText(this).apply { hint = "Eye-line from top (%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText(eyeLinePercent.toString()) }
+        fields.addView(TextView(this).apply {
+            text = "Position the subject manually: fit the head inside the oval and align the eyes with the horizontal line. No face detection is performed."
+            textSize = 13f
+        })
+        fields.addView(headInput); fields.addView(eyeInput)
+        val dialog = AlertDialog.Builder(this).setTitle("Head and eye-line guides").setView(fields)
+            .setNegativeButton("Cancel", null).setPositiveButton("Show guides", null)
+            .setNeutralButton("Hide", null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val head = headInput.text.toString().toIntOrNull()
+                val eye = eyeInput.text.toString().toIntOrNull()
+                if (head == null || eye == null || head !in 40..90 || eye !in 20..70) {
+                    showStatus("Head height must be 40–90%; eye line must be 20–70%.")
+                    return@setOnClickListener
+                }
+                headHeightPercent = head; eyeLinePercent = eye; guidesVisible = true
+                guideOverlay.configure(previewBitmap, head, eye, true)
+                dialog.dismiss()
+                showStatus("Guides shown. Adjust the subject manually; these are framing aids, not official compliance checks.")
+            }
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+                guidesVisible = false
+                guideOverlay.configure(previewBitmap, headHeightPercent, eyeLinePercent, false)
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+
+    private fun configurePrintSheet() {
+        if (sourceUri == null) return noPhoto()
+        val fields = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
+        val columnsInput = EditText(this).apply { hint = "Columns (1–5)"; inputType = InputType.TYPE_CLASS_NUMBER; setText("3") }
+        val rowsInput = EditText(this).apply { hint = "Rows (1–7)"; inputType = InputType.TYPE_CLASS_NUMBER; setText("4") }
+        fields.addView(TextView(this).apply {
+            text = "Create a single A4 portrait PDF page. The current edited photo repeats in equal cells with white margins and cut guides."
+            textSize = 13f
+        })
+        fields.addView(columnsInput); fields.addView(rowsInput)
+        val dialog = AlertDialog.Builder(this).setTitle("A4 print sheet").setView(fields)
+            .setNegativeButton("Cancel", null).setPositiveButton("Create PDF", null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val columns = columnsInput.text.toString().toIntOrNull()
+                val rows = rowsInput.text.toString().toIntOrNull()
+                if (columns == null || rows == null || columns !in 1..5 || rows !in 1..7) {
+                    showStatus("Choose 1–5 columns and 1–7 rows.")
+                    return@setOnClickListener
+                }
+                dialog.dismiss()
+                exportPrintSheet(columns, rows)
+            }
+        }
+        dialog.show()
+    }
+
+    private fun exportPrintSheet(columns: Int, rows: Int) {
+        var photo: Bitmap? = null
+        val document = PdfDocument()
+        try {
+            photo = buildEditedBitmap(EXPORT_MAX_EDGE)
+            val info = PdfDocument.PageInfo.Builder(A4_WIDTH_PT, A4_HEIGHT_PT, 1).create()
+            val page = document.startPage(info)
+            val canvas = page.canvas
+            canvas.drawColor(android.graphics.Color.WHITE)
+            val margin = 28f
+            val gap = 12f
+            val cellWidth = (A4_WIDTH_PT - 2f * margin - (columns - 1) * gap) / columns
+            val cellHeight = (A4_HEIGHT_PT - 2f * margin - (rows - 1) * gap) / rows
+            val border = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF777777.toInt(); style = Paint.Style.STROKE; strokeWidth = 0.45f }
+            val mark = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF333333.toInt(); strokeWidth = 0.55f }
+            for (r in 0 until rows) for (c in 0 until columns) {
+                val left = margin + c * (cellWidth + gap)
+                val top = margin + r * (cellHeight + gap)
+                val cell = RectF(left, top, left + cellWidth, top + cellHeight)
+                val scale = minOf(cell.width() / photo.width, cell.height() / photo.height)
+                val w = photo.width * scale
+                val h = photo.height * scale
+                val dst = RectF(cell.centerX() - w / 2f, cell.centerY() - h / 2f, cell.centerX() + w / 2f, cell.centerY() + h / 2f)
+                canvas.drawBitmap(photo, null, dst, Paint(Paint.FILTER_BITMAP_FLAG))
+                canvas.drawRect(dst, border)
+                val t = 4f
+                canvas.drawLine(dst.left - t, dst.top, dst.left + t, dst.top, mark)
+                canvas.drawLine(dst.right - t, dst.bottom, dst.right + t, dst.bottom, mark)
+            }
+            document.finishPage(page)
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, "aki_print_${System.currentTimeMillis()}.pdf")
+                put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents/Aki Studio")
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+            val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: throw IOException("Could not create PDF destination")
+            try {
+                contentResolver.openOutputStream(uri)?.use { document.writeTo(it) } ?: throw IOException("Could not open PDF output")
+                values.clear(); values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                contentResolver.update(uri, values, null, null)
+                showStatus("A4 print sheet saved in Documents/Aki Studio (${columns} × ${rows}).")
+            } catch (error: Exception) {
+                contentResolver.delete(uri, null, null); throw error
+            }
+        } catch (error: Exception) {
+            showStatus("PDF creation failed: ${error.message ?: "unknown error"}")
+        } finally {
+            photo?.recycle(); document.close()
+        }
+    }
+
     private fun renderPreview() {
         preview.setImageBitmap(previewBitmap)
+        guideOverlay.configure(previewBitmap, headHeightPercent, eyeLinePercent, guidesVisible)
     }
 
     private fun noPhoto() {
@@ -456,5 +589,7 @@ class MainActivity : Activity() {
         private const val REQUEST_OPEN = 41
         private const val PREVIEW_MAX_EDGE = 1800
         private const val EXPORT_MAX_EDGE = 4096
+        private const val A4_WIDTH_PT = 595
+        private const val A4_HEIGHT_PT = 842
     }
 }
