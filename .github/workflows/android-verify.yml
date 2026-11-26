@@ -71,6 +71,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: unit-and-build
     timeout-minutes: 45
+    env:
+      # GitHub-hosted Linux runners do not expose KVM; explicitly permit the
+      # Android Emulator's TCG software CPU backend instead of failing at boot.
+      ANDROID_I_WANT_MY_TCG: "yes"
     strategy:
       fail-fast: false
       matrix:
