@@ -2,7 +2,7 @@
 
 ## Adaptive workspace UI
 
-The native View shell uses the current app-window bounds to select compact, medium, and expanded layouts. It adapts action-grid density, tool-panel columns, preview height, page gutters, maximum content width, and system insets. Orientation and window-size changes rebuild the view tree while retaining the active editing state. Shared UI primitives include section panels, action cards, chips, metric widgets, empty states, status labels, and preview surfaces. The layout does not infer fold posture or depend on hardware model names; foldable hinge-aware behavior remains a future verified enhancement.
+The native View shell uses current app-window bounds to select compact, medium, and expanded layouts. It adapts action-grid density, tool-panel columns, preview height, page gutters, maximum content width, and system insets. Expanded windows use a persistent vertical workspace rail; compact windows use floating canvas actions and a fixed contextual bottom bar. Orientation and window-size changes rebuild the view tree while retaining the active editing state. AndroidX WindowManager observes folding features: separating vertical hinges reserve a navigation/content pane boundary, while horizontal hinges reserve the reported upper hinge region. If fold information is unavailable, the app falls back to width-class adaptation. Physical foldable validation remains pending.
 
 ## Runtime boundary
 
@@ -16,9 +16,10 @@ The app uses Android platform APIs and an optional LiteRT CPU interpreter depend
 - Android SDK Platform 36
 - Gradle 8.11.1
 - Android Gradle Plugin 8.9.1
-- Kotlin Android plugin 2.1.20
+- Kotlin Android plugin 2.4.0
 - Minimum supported Android: API 29
 - LiteRT CPU interpreter dependency: 2.4.0
+- AndroidX WindowManager Java adapter: 1.4.0 (foldable window-layout observation)
 
 Open the repository root in Android Studio, sync the local Gradle/Android SDK toolchain, and run the `:app` configuration on an emulator or physical Android device. Build tooling may need locally available Gradle/SDK/plugin artifacts. The app runtime itself does not require a network connection.
 
@@ -41,6 +42,16 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 - Reset edits while preserving the source.
 - Save a new JPEG copy (quality 94) or lossless PNG under `Pictures/Aki Studio`; PNG retains alpha when present in the edited bitmap.
 - Name each JPEG/PNG export and A4 PDF print sheet yourself, or save a reusable local filename pattern using the `{type}` and `{date}` tokens.
+
+### Design Studio and adaptive controls
+- Edit selected layer position (normalized center X/Y), width, height, rotation and opacity from the inspector.
+- Configure text-only typography per layer: font size, weight, italic, alignment, font family, line spacing, shadow/outline effect and effect color.
+- Configure vector-only properties per layer: primitive type, fill, stroke, stroke width and custom Bézier path data.
+- Choose fill, stroke and text-effect colors from a curated palette or enter a custom hex color.
+- Apply built-in Aki Mint, Editorial, Bold Poster and Minimal style presets; save up to 12 custom presets locally on the device.
+- Presets change appearance only and preserve layer identity, content, geometry and rotation.
+- Expanded workspace navigation is a vertical rail; compact workspace navigation remains horizontal with floating canvas actions and a contextual bottom toolbar.
+- Foldable layouts observe separating hinge orientation and bounds; actual foldable hardware validation remains pending.
 
 ### ID/passport preparation
 - Dimension presets: 35 × 45 mm (413 × 531 px) and 2 × 2 inch (600 × 600 px), calculated for 300 DPI.
