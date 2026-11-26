@@ -29,3 +29,8 @@ android {
         jvmTarget = "17"
     }
 }
+
+dependencies {
+    // CPU Interpreter only; no GPU, NNAPI, Play Services, or network runtime.
+    implementation("com.google.ai.edge.litert:litert:2.4.0")
+}
