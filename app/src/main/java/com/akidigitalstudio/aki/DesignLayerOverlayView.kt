@@ -140,15 +140,16 @@ class DesignLayerOverlayView(context: Context) : View(context) {
                 val rect = layerRect(hit)
                 val centerX = rect.centerX()
                 val centerY = rect.centerY()
+                val local = inverseRotate(event.x, event.y, centerX, centerY, hit.rotationDegrees)
                 val rotateY = rect.top - 30f * resources.displayMetrics.density
                 val handle = 18f * resources.displayMetrics.density
                 val corners = arrayOf(rect.left to rect.top, rect.right to rect.top, rect.left to rect.bottom, rect.right to rect.bottom)
-                resizeCorner = corners.indices.minByOrNull { i -> distance(event.x, event.y, corners[i].first, corners[i].second) } ?: -1
-                val cornerHit = resizeCorner >= 0 && distance(event.x, event.y, corners[resizeCorner].first, corners[resizeCorner].second) <= handle * 1.6f
+                resizeCorner = corners.indices.minByOrNull { i -> distance(local.first, local.second, corners[i].first, corners[i].second) } ?: -1
+                val cornerHit = resizeCorner >= 0 && distance(local.first, local.second, corners[resizeCorner].first, corners[resizeCorner].second) <= handle * 1.6f
                 gestureMode = when {
-                    distance(event.x, event.y, centerX, rotateY) <= handle * 1.6f -> GestureMode.ROTATE
+                    distance(local.first, local.second, centerX, rotateY) <= handle * 1.6f -> GestureMode.ROTATE
                     cornerHit -> GestureMode.RESIZE
-                    rect.contains(event.x, event.y) -> GestureMode.MOVE
+                    rect.contains(local.first, local.second) -> GestureMode.MOVE
                     else -> GestureMode.NONE
                 }
                 startAngle = angle(centerX, centerY, event.x, event.y)
@@ -213,8 +214,18 @@ class DesignLayerOverlayView(context: Context) : View(context) {
 
     private fun hitLayer(layer: DesignLayer, x: Float, y: Float): Boolean {
         val rect = layerRect(layer)
+        val local = inverseRotate(x, y, rect.centerX(), rect.centerY(), layer.rotationDegrees)
         val tolerance = 44f * resources.displayMetrics.density
-        return RectF(rect.left - tolerance, rect.top - tolerance, rect.right + tolerance, rect.bottom + tolerance).contains(x, y)
+        return RectF(rect.left - tolerance, rect.top - tolerance, rect.right + tolerance, rect.bottom + tolerance).contains(local.first, local.second)
+    }
+
+    private fun inverseRotate(x: Float, y: Float, cx: Float, cy: Float, degrees: Float): Pair<Float, Float> {
+        val radians = Math.toRadians((-degrees).toDouble())
+        val dx = x - cx
+        val dy = y - cy
+        val cosine = kotlin.math.cos(radians).toFloat()
+        val sine = kotlin.math.sin(radians).toFloat()
+        return (cx + dx * cosine - dy * sine) to (cy + dx * sine + dy * cosine)
     }
 
     private fun angle(cx: Float, cy: Float, x: Float, y: Float): Float =
