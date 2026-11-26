@@ -3,7 +3,6 @@ package com.akidigitalstudio.aki
 import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
-import android.view.View
 import android.widget.EditText
 import android.widget.GridLayout
 import android.widget.LinearLayout
@@ -21,7 +20,7 @@ object LayerColorPicker {
     fun show(context: Context, initial: Int, onSelected: (Int) -> Unit) {
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24, 12, 24, 4)
+            setPadding((24 * context.resources.displayMetrics.density).toInt(), (12 * context.resources.displayMetrics.density).toInt(), (24 * context.resources.displayMetrics.density).toInt(), (4 * context.resources.displayMetrics.density).toInt())
         }
         val hex = EditText(context).apply {
             hint = "#RRGGBB or #AARRGGBB"
