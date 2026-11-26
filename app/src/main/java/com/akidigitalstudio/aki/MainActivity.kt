@@ -165,6 +165,24 @@ class MainActivity : Activity() {
         })
         updateInspectorSummary()
 
+        // On expanded windows, keep the canvas and inspector together as a split workspace.
+        // Compact and medium windows retain the vertical, scroll-first composition.
+        if (profile.widthClass == WindowWidthClass.EXPANDED) {
+            page.removeView(previewFrame)
+            inspectorPanel?.let { page.removeView(it) }
+            val canvasWorkspace = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.TOP
+            }
+            canvasWorkspace.addView(previewFrame, LinearLayout.LayoutParams(0, dp(profile.previewHeightDp), 2.25f).apply {
+                rightMargin = dp(12)
+            })
+            inspectorPanel?.let { panel ->
+                canvasWorkspace.addView(panel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            }
+            page.addView(canvasWorkspace, 1)
+        }
+
         val panelHost = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val primaryPanelColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val secondaryPanelColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
