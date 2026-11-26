@@ -168,8 +168,13 @@ class DesignLayerOverlayView(context: Context) : View(context) {
                     GestureMode.MOVE -> {
                         var nx = (base.x + dx).coerceIn(0f, 1f)
                         var ny = (base.y + dy).coerceIn(0f, 1f)
-                        if (kotlin.math.abs(nx - 0.5f) < 0.018f) { nx = 0.5f; snappedX = true }
-                        if (kotlin.math.abs(ny - 0.5f) < 0.018f) { ny = 0.5f; snappedY = true }
+                        val objectSnap = DesignStudioOperations.snapToObjects(base.copy(x = nx, y = ny), layers, 0.018f)
+                        nx = objectSnap.layer.x
+                        ny = objectSnap.layer.y
+                        snappedX = objectSnap.snappedX
+                        snappedY = objectSnap.snappedY
+                        if (!snappedX && kotlin.math.abs(nx - 0.5f) < 0.018f) { nx = 0.5f; snappedX = true }
+                        if (!snappedY && kotlin.math.abs(ny - 0.5f) < 0.018f) { ny = 0.5f; snappedY = true }
                         base.copy(x = nx, y = ny)
                     }
                     GestureMode.RESIZE -> {
