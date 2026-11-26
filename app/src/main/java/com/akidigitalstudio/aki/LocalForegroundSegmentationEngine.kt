@@ -50,7 +50,7 @@ class CpuBorderColorSegmentationProvider(
         val scale = minOf(1f, 512f / max(source.width, source.height).toFloat())
         val width = max(1, (source.width * scale).toInt())
         val height = max(1, (source.height * scale).toInt())
-        val small = Bitmap.createScaledBitmap(source, width, height, true)
+        val small = if (width == source.width && height == source.height) source.copy(Bitmap.Config.ARGB_8888, false) else Bitmap.createScaledBitmap(source, width, height, true)
         try {
             val pixels = IntArray(width * height)
             small.getPixels(pixels, 0, width, 0, 0, width, height)
