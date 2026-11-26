@@ -49,7 +49,8 @@ class EditHistoryTest {
         val mutable = mutableMapOf("rotation" to "0")
         history.reset(mutable)
         mutable["rotation"] = "270"
-        assertEquals(mapOf("rotation" to "0"), history.undo() ?: history.redo())
+        history.record(mapOf("rotation" to "90"))
+        assertEquals(mapOf("rotation" to "0"), history.undo())
     }
 
     @Test fun validatesCapacity() {
