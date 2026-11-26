@@ -12,7 +12,7 @@
 - Supports reset, record, undo and redo.
 - Duplicate consecutive snapshots are ignored.
 - A new edit after undo discards the redo branch.
-- Default history capacity is 40 states; supported capacity is bounded to 2–100.
+- Default history capacity is 100 states; the supported capacity is bounded to 2–100.
 - When capacity is exceeded, the oldest state is dropped.
 - Added Amharic/English Undo edit and Redo edit controls.
 - Connected rotation, monochrome, brightness, contrast, saturation, warmth, crop ratio/rectangle, crop position and resize recipe changes to history.
