@@ -35,8 +35,9 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 - Dimension presets: 35 × 45 mm (413 × 531 px) and 2 × 2 inch (600 × 600 px), calculated for 300 DPI.
 - Configurable manual head-height and eye-line overlays.
 - Manual visual alignment only; no face detection or biometric measurement.
-- Jurisdiction-aware specification foundation distinguishes authority-verified records from user-defined/unverified templates.
-- Photo-standard foundation does not itself provide a verified government standard or compliance certification.
+- Jurisdiction-aware specification validation distinguishes authority-verified records from user-defined/unverified templates; authority claims require HTTPS provenance and valid effective/verification dates, and future-dated records fail closed.
+- JVM tests are authored for provenance, date, and dimension rules but have not yet been executed.
+- No government authority source has yet been independently verified and added; the validator does not itself certify a template's legal authenticity.
 
 ### Photo quality
 - Bounded CPU sampling for dimensions, aspect ratio, sharpness proxy, exposure extremes, luminance variation and border variation.
@@ -81,7 +82,7 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 | Static source review | Partial; individual source checks only |
 | Synthetic segmentation harness | Reference algorithm checks passed; not Kotlin runtime evidence |
 | Gradle dependency resolution/build | NOT RUN |
-| Unit tests | NOT RUN |
+| Unit tests | Authored for photo-spec validation; NOT RUN |
 | Instrumentation tests | NOT RUN |
 | Emulator/device test | NOT RUN |
 | Airplane-mode runtime test | NOT RUN |
