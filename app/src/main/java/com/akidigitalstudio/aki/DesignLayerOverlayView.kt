@@ -24,6 +24,7 @@ class DesignLayerOverlayView(context: Context) : View(context) {
     var selectedLayerId: String? = null
         private set
     var onCommit: ((DesignLayer) -> Unit)? = null
+    var onSelectionChanged: ((String) -> Unit)? = null
 
     private val imageBounds = RectF()
     private val selectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -133,6 +134,7 @@ class DesignLayerOverlayView(context: Context) : View(context) {
                 imageBounds.set(fitBounds())
                 val hit = layers.asReversed().firstOrNull { it.visible && hitLayer(it, event.x, event.y) } ?: return false
                 selectedLayerId = hit.id
+                onSelectionChanged?.invoke(hit.id)
                 if (hit.locked) {
                     invalidate()
                     return true
