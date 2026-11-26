@@ -369,6 +369,7 @@ class MainActivity : Activity() {
                         return@setOnClickListener
                     }
                     cropRectNormalized = rect
+                    cropRatio = ratio
                     cropLabel = if (english) "Fine crop" else "ትክክለኛ ቁረጥ"
                     outputWidthPx = null; outputHeightPx = null
                     resizeMaxWidthPx = null; resizeMaxHeightPx = null
