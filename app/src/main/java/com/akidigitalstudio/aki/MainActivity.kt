@@ -628,8 +628,11 @@ class MainActivity : Activity() {
     private fun restoreLocalProject(summary: LocalProjectStore.ProjectSummary) {
         try {
             val data = LocalProjectStore.load(summary)
+            val projectUri = Uri.fromFile(data.sourceFile)
+            val validationPreview = decodeBounded(projectUri, ORIGINAL_PREVIEW_MAX_EDGE)
+            validationPreview.recycle()
             cancelSegmentationRequest()
-            sourceUri = Uri.fromFile(data.sourceFile)
+            sourceUri = projectUri
             clearEdits()
             val values = data.values
             rotation = values["rotation"]?.toFloatOrNull()?.takeIf { it.isFinite() }?.rem(360f) ?: 0f
