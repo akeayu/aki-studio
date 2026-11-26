@@ -67,6 +67,14 @@ class InteractiveCropView(
         crop.right / bitmap.width, crop.bottom / bitmap.height
     )
 
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val desiredHeight = (420f * resources.displayMetrics.density).toInt()
+        setMeasuredDimension(
+            resolveSize(suggestedMinimumWidth, widthMeasureSpec),
+            resolveSize(desiredHeight, heightMeasureSpec)
+        )
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val scale = min(width.toFloat() / bitmap.width, height.toFloat() / bitmap.height)
