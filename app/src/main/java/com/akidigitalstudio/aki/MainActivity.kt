@@ -32,6 +32,8 @@ class MainActivity : Activity() {
     private lateinit var guideOverlay: GuideOverlayView
     private lateinit var maskOverlay: ManualMaskView
     private var backgroundReplaceEnabled = false
+    private var autoMaskBitmap: Bitmap? = null
+    private var autoPreviewBitmap: Bitmap? = null
     private var backgroundColor = android.graphics.Color.WHITE
     private lateinit var status: TextView
     private var sourceUri: Uri? = null
@@ -140,6 +142,10 @@ class MainActivity : Activity() {
         row8.addView(actionButton(if (english) "Before / After" else "ከዚያ በፊት / በኋላ") { toggleBeforeAfter() }, weighted())
         page.addView(row8)
 
+        val row9 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        row9.addView(actionButton(if (english) "Quick local background estimate" else "የጀርባ ቦታን በመሣሪያው ገምት") { runLocalForegroundEstimate() }, weighted())
+        page.addView(row9)
+
         val language = Button(this).apply {
             text = if (english) "አማርኛ" else "English"
             setOnClickListener {
@@ -228,8 +234,14 @@ class MainActivity : Activity() {
                 image = cropped
             }
             if (backgroundReplaceEnabled) {
-                val mask = maskOverlay.renderMask(image.width, image.height)
-                val replaced = try { BackgroundReplacementEngine.replaceSolid(image, mask, backgroundColor) } finally { mask.recycle() }
+                val mask = autoMaskBitmap?.let {
+                    if (it.width == image.width && it.height == image.height) it
+                    else Bitmap.createScaledBitmap(it, image.width, image.height, true)
+                } ?: maskOverlay.renderMask(image.width, image.height)
+                val ownsMask = mask !== autoMaskBitmap
+                val replaced = try { BackgroundReplacementEngine.replaceSolid(image, mask, backgroundColor) } finally {
+                    if (ownsMask && !mask.isRecycled) mask.recycle()
+                }
                 image.recycle()
                 image = replaced
             }
@@ -404,6 +416,12 @@ class MainActivity : Activity() {
     }
 
     private fun refreshPreview() {
+        // Geometry edits invalidate a mask estimated from the previous preview.
+        if (autoMaskBitmap != null) {
+            autoMaskBitmap?.recycle(); autoMaskBitmap = null
+            autoPreviewBitmap?.recycle(); autoPreviewBitmap = null
+            backgroundReplaceEnabled = false
+        }
         try {
             val next = buildEditedBitmap(PREVIEW_MAX_EDGE)
             previewBitmap?.recycle()
@@ -428,6 +446,8 @@ class MainActivity : Activity() {
         cropHorizontal = 0.5f
         cropVertical = 0.5f
         backgroundReplaceEnabled = false
+        autoMaskBitmap?.recycle(); autoMaskBitmap = null
+        autoPreviewBitmap?.recycle(); autoPreviewBitmap = null
         if (::maskOverlay.isInitialized) { maskOverlay.clearMask(); maskOverlay.configure(previewBitmap, false) }
     }
 
@@ -500,7 +520,7 @@ class MainActivity : Activity() {
     private fun toggleBeforeAfter() {
         if (sourceUri == null) return noPhoto()
         showingOriginal = !showingOriginal
-        preview.setImageBitmap(if (showingOriginal) originalPreviewBitmap else previewBitmap)
+        preview.setImageBitmap(if (showingOriginal) originalPreviewBitmap else (autoPreviewBitmap ?: previewBitmap))
         guideOverlay.configure(if (showingOriginal) originalPreviewBitmap else previewBitmap, headHeightPercent, eyeLinePercent, guidesVisible && !showingOriginal)
         maskOverlay.configure(previewBitmap, false)
         showStatus(if (english) {
@@ -542,6 +562,28 @@ class MainActivity : Activity() {
                     }
                 }
             }.show()
+    }
+
+    private fun runLocalForegroundEstimate() {
+        if (sourceUri == null || previewBitmap == null) return noPhoto()
+        try {
+            val result = LocalForegroundSegmentationEngine().segment(previewBitmap!!)
+            autoMaskBitmap?.recycle()
+            autoPreviewBitmap?.recycle()
+            autoMaskBitmap = result.foregroundMask
+            backgroundReplaceEnabled = true
+            maskOverlay.configure(previewBitmap, false)
+            autoPreviewBitmap = BackgroundReplacementEngine.replaceSolid(previewBitmap!!, result.foregroundMask, backgroundColor)
+            renderPreview()
+            val caveat = if (english) {
+                "Local estimate: " + result.method + ". Confidence is low (" + (result.confidence * 100).toInt() + "%). Border-colour heuristic only; inspect and correct the mask manually. Similar-coloured hair/clothing may be removed."
+            } else {
+                "በመሣሪያው ላይ የተገመተ፦ " + result.method + "። እምነት ዝቅተኛ ነው። የጠርዝ ቀለም ግምት ብቻ ነው፤ ማስኩን ይመርምሩና በእጅ ያስተካክሉ።"
+            }
+            showStatus(caveat)
+        } catch (error: Exception) {
+            showStatus(if (english) "Local foreground estimate failed: " + (error.message ?: "image error") else "የፊት ክፍል ግምት አልተሳካም።")
+        }
     }
 
     private fun configureManualMask() {
@@ -852,6 +894,8 @@ class MainActivity : Activity() {
         previewBitmap = null
         originalPreviewBitmap?.recycle()
         originalPreviewBitmap = null
+        autoMaskBitmap?.recycle(); autoMaskBitmap = null
+        autoPreviewBitmap?.recycle(); autoPreviewBitmap = null
         super.onDestroy()
     }
 
