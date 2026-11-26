@@ -52,6 +52,9 @@ object AkiStudioUi {
             setTextColor(MINT)
             background = rounded(context, SURFACE_RAISED, OUTLINE, 18f)
             setPadding(dp(context, 13), dp(context, 9), dp(context, 13), dp(context, 9))
+            minimumHeight = dp(context, 48)
+            minimumWidth = dp(context, 64)
+            contentDescription = if (english) "Switch language to Amharic" else "Switch language to English"
             isClickable = true
             isFocusable = true
             setOnClickListener { languageAction() }
@@ -65,7 +68,7 @@ object AkiStudioUi {
         })
         val meta = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         meta.addView(badge(context, "●  " + if (english) "ON-DEVICE STUDIO" else "በመሣሪያው ላይ", MINT))
-        meta.addView(space(context, 8))
+        meta.addView(horizontalSpace(context, 8))
         meta.addView(badge(context, "◈  " + if (english) "PRIVATE WORKSPACE" else "የግል የሥራ ቦታ", CYAN))
         column.addView(meta)
         return column
@@ -114,7 +117,7 @@ object AkiStudioUi {
         actions.chunked(2).forEach { pair ->
             val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
             pair.forEachIndexed { index, action ->
-                row.addView(actionTile(context, action), LinearLayout.LayoutParams(0, dp(context, 76), 1f).apply {
+                row.addView(actionTile(context, action), LinearLayout.LayoutParams(0, dp(context, 96), 1f).apply {
                     if (index == 0) rightMargin = dp(context, 6) else leftMargin = dp(context, 6)
                     bottomMargin = dp(context, 8)
                 })
@@ -129,10 +132,11 @@ object AkiStudioUi {
 
     fun actionTile(context: Context, action: Action): View {
         val tile = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
             background = ripple(context, SURFACE_RAISED, 0x3375E0C0)
-            setPadding(dp(context, 10), dp(context, 8), dp(context, 8), dp(context, 8))
+            setPadding(dp(context, 6), dp(context, 7), dp(context, 6), dp(context, 6))
+            minimumHeight = dp(context, 92)
             isClickable = true
             isFocusable = true
             contentDescription = action.title + ". " + action.subtitle
@@ -140,28 +144,33 @@ object AkiStudioUi {
         }
         tile.addView(TextView(context).apply {
             text = action.symbol
-            textSize = 21f
+            textSize = 19f
             gravity = Gravity.CENTER
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(MINT)
-            background = rounded(context, 0xFF243746.toInt(), 0xFF304A5A.toInt(), 12f)
-        }, LinearLayout.LayoutParams(dp(context, 42), dp(context, 42)).apply { rightMargin = dp(context, 9) })
-        val copy = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+            background = rounded(context, 0xFF243746.toInt(), 0xFF304A5A.toInt(), 11f)
+        }, LinearLayout.LayoutParams(dp(context, 34), dp(context, 34)).apply { bottomMargin = dp(context, 5) })
+        val copy = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+        }
         copy.addView(TextView(context).apply {
             text = action.title
-            textSize = 12f
+            textSize = 11f
             maxLines = 2
+            gravity = Gravity.CENTER
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             setTextColor(TEXT)
         })
         copy.addView(TextView(context).apply {
             text = action.subtitle
-            textSize = 9f
+            textSize = 8f
             maxLines = 1
+            gravity = Gravity.CENTER
             setTextColor(MUTED)
-            setPadding(0, dp(context, 3), 0, 0)
+            setPadding(0, dp(context, 2), 0, 0)
         })
-        tile.addView(copy, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        tile.addView(copy, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         return tile
     }
 
@@ -181,6 +190,9 @@ object AkiStudioUi {
 
     private fun space(context: Context, heightDp: Int): View =
         View(context).apply { layoutParams = LinearLayout.LayoutParams(1, dp(context, heightDp)) }
+
+    private fun horizontalSpace(context: Context, widthDp: Int): View =
+        View(context).apply { layoutParams = LinearLayout.LayoutParams(dp(context, widthDp), 1) }
 
     private fun rounded(context: Context, fill: Int, stroke: Int, radiusDp: Float) = GradientDrawable().apply {
         setColor(fill)
