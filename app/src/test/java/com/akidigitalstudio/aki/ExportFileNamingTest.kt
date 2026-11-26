@@ -3,14 +3,21 @@ package com.akidigitalstudio.aki
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import java.util.TimeZone
 
 class ExportFileNamingTest {
     @Test
     fun expandsUserPatternTokensDeterministically() {
-        assertEquals(
-            "Studio_photo_20261126_053530",
-            ExportFileNaming.expand("Studio_{type}_{date}", "photo", 1795671330000L)
-        )
+        val previousZone = TimeZone.getDefault()
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+            assertEquals(
+                "Studio_photo_20261126_053530",
+                ExportFileNaming.expand("Studio_{type}_{date}", "photo", 1795671330000L)
+            )
+        } finally {
+            TimeZone.setDefault(previousZone)
+        }
     }
 
     @Test
