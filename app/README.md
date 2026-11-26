@@ -67,6 +67,15 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 - Repeats the current edited image with basic borders and cut marks.
 - PDF is saved under `Documents/Aki Studio`.
 
+### Layer-based Design Studio
+- A versioned, non-destructive design document supports up to 30 editable layers.
+- Typography layers support editable text, multiline content, system sans-serif, bold and italic styling.
+- Vector primitives include rectangles, ellipses and lines with fill, stroke and opacity.
+- Layer management supports visibility, locking, normalized position/size, stacking order and deletion.
+- Design layers are stored with private local projects and participate in the existing 100-step recipe history.
+- A shared CPU renderer composites layers into the preview/export bitmap without mutating the original source.
+- Text/vector objects are rasterized at export; arbitrary paths, SVG import, gradients, font selection, kerning, snapping, multi-select and touch transform handles are not implemented yet.
+
 ### Studio interface
 - Reusable native-view design system with a dark cinematic workspace shell, restrained mint/cyan accents, rounded surfaces, status badges and ripple-enabled action tiles.
 - Main screen groups actions into Workspace, Image Lab, Portrait & ID, Background Lab and Print Studio rather than presenting a long flat button list.
@@ -80,7 +89,7 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 ## Known limitations
 
 - No actual Gradle build, APK, emulator installation, or physical-device test has been recorded.
-- No layered project format, per-stroke mask history, autosave/recovery journal, camera capture, batch processing, or advanced portrait retouching yet.
+- Per-stroke mask history, autosave/recovery journal, camera capture, batch processing, and advanced portrait retouching are not implemented yet.
 - Tonal adjustment controls are global RGB approximations; no calibrated white balance, colour management, curves, selective adjustment, sharpening, or noise reduction yet.
 - Background segmentation currently depends on a low-confidence border-colour heuristic; manual inspection and correction are required.
 - The optional LiteRT model binary is not present and has not been checksum-verified or licensed into this repository.
