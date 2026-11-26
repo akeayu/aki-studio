@@ -8,6 +8,7 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.Rect
 import android.graphics.pdf.PdfDocument
 import android.graphics.ImageDecoder
 import android.net.Uri
@@ -32,6 +33,12 @@ import java.io.FileInputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
+import java.util.concurrent.Executor
+import java.util.function.Consumer
+import androidx.window.java.layout.WindowInfoTrackerCallbackAdapter
+import androidx.window.layout.FoldingFeature
+import androidx.window.layout.WindowInfoTracker
+import androidx.window.layout.WindowLayoutInfo
 import kotlin.math.max
 import kotlin.math.sqrt
 
@@ -82,11 +89,55 @@ class MainActivity : Activity() {
     private var inspectorPanel: View? = null
     private var inspectorSummary: TextView? = null
     private var inspectorExpanded = false
+    private var foldTracker: WindowInfoTrackerCallbackAdapter? = null
+    private var foldConsumer: Consumer<WindowLayoutInfo>? = null
+    private var foldBounds: Rect? = null
+    private var foldSeparating = false
+    private var foldOrientation: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         buildScreen()
         showStatus(if (english) "Ready. Your photos stay on this device." else "ዝግጁ ነው። ፎቶዎችዎ በዚህ መሣሪያ ላይ ብቻ ይቆያሉ።")
+    }
+
+    override fun onStart() {
+        super.onStart()
+        registerFoldLayoutTracking()
+    }
+
+    override fun onStop() {
+        foldConsumer?.let { consumer -> foldTracker?.removeWindowLayoutInfoListener(consumer) }
+        foldConsumer = null
+        foldTracker = null
+        super.onStop()
+    }
+
+    private fun registerFoldLayoutTracking() {
+        if (foldTracker != null) return
+        try {
+            val tracker = WindowInfoTrackerCallbackAdapter(WindowInfoTracker.getOrCreate(this))
+            val consumer = Consumer<WindowLayoutInfo> { info ->
+                val feature = info.displayFeatures.filterIsInstance<FoldingFeature>().firstOrNull()
+                val nextBounds = feature?.bounds?.let { Rect(it) }
+                val nextSeparating = feature?.isSeparating == true
+                val nextOrientation = feature?.orientation
+                if (nextBounds != foldBounds || nextSeparating != foldSeparating || nextOrientation != foldOrientation) {
+                    foldBounds = nextBounds
+                    foldSeparating = nextSeparating
+                    foldOrientation = nextOrientation
+                    if (!isFinishing && !isDestroyed) {
+                        buildScreen()
+                        renderPreview()
+                    }
+                }
+            }
+            foldTracker = tracker
+            foldConsumer = consumer
+            tracker.addWindowLayoutInfoListener(this, Executor { command -> runOnUiThread(command) }, consumer)
+        } catch (_: Exception) {
+            // Fold support is optional; ordinary window-size adaptation remains available.
+        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -132,6 +183,24 @@ class MainActivity : Activity() {
             addView(guideOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             addView(maskOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             addView(designOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
+        if (profile.widthClass == WindowWidthClass.COMPACT) {
+            val floatingControls = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(5), dp(5), dp(5), dp(5))
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(0xDD141D29.toInt())
+                    cornerRadius = dp(16).toFloat()
+                    setStroke(dp(1), AkiStudioUi.OUTLINE)
+                }
+                addView(AkiStudioUi.toolbarButton(this@MainActivity, if (english) "Select" else "ምረጥ") { toggleDesignTransformMode() })
+                addView(AkiStudioUi.toolbarButton(this@MainActivity, if (english) "Compare" else "አወዳድር") { toggleBeforeAfter() })
+                addView(AkiStudioUi.toolbarButton(this@MainActivity, if (english) "Layers" else "ንብርብር") { manageDesignLayers() })
+            }
+            previewFrame.addView(floatingControls, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END or Gravity.BOTTOM
+            ).apply { rightMargin = dp(9); bottomMargin = dp(9) })
         }
         page.addView(previewFrame, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, dp(profile.previewHeightDp)
@@ -330,41 +399,53 @@ class MainActivity : Activity() {
                 }
             })
         }
-        page.addView(commandStrip, 1)
+        if (profile.widthClass == WindowWidthClass.EXPANDED) page.addView(commandStrip, 1)
 
         // Workspace switcher acts as a compact navigation bar; selecting a section
         // focuses its tools without destroying the editing session.
-        val navigation = android.widget.HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-            addView(LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                val navigationButtons = mutableListOf<Pair<String, TextView>>()
-                val labels = listOf(
-                    "All" to (if (english) "All" else "ሁሉም"),
-                    "Workspace" to (if (english) "Workspace" else "የሥራ ቦታ"),
-                    "Image Lab" to (if (english) "Image" else "ምስል"),
-                    "Portrait & ID" to (if (english) "Portrait / ID" else "ፖርትሬት"),
-                    "Background Lab" to (if (english) "Background" else "ጀርባ"),
-                    "Print Studio" to (if (english) "Print" else "ህትመት"),
-                    "Design Studio" to (if (english) "Design" else "ዲዛይን")
-                )
-                labels.forEach { (key, label) ->
-                    val chip = AkiStudioUi.navigationChip(this@MainActivity, label, activeWorkspace == key) {
-                        activeWorkspace = key
-                        applyWorkspaceFilter(key)
-                        navigationButtons.forEach { (buttonKey, button) ->
-                            AkiStudioUi.setNavigationChipSelected(button, buttonKey == key)
-                        }
-                    }
-                    navigationButtons.add(key to chip)
-                    addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38)).apply {
-                        rightMargin = dp(6)
-                    })
+        val navigation = LinearLayout(this).apply {
+            orientation = if (profile.widthClass == WindowWidthClass.EXPANDED) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+            gravity = if (profile.widthClass == WindowWidthClass.EXPANDED) Gravity.TOP else Gravity.CENTER_VERTICAL
+            setPadding(
+                if (profile.widthClass == WindowWidthClass.EXPANDED) dp(8) else 0,
+                dp(4),
+                if (profile.widthClass == WindowWidthClass.EXPANDED) dp(8) else 0,
+                dp(4)
+            )
+            if (profile.widthClass == WindowWidthClass.EXPANDED) {
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(AkiStudioUi.SURFACE)
+                    setStroke(dp(1), AkiStudioUi.OUTLINE)
                 }
-            })
+            }
+            val navigationButtons = mutableListOf<Pair<String, TextView>>()
+            val labels = listOf(
+                "All" to (if (english) "All" else "ሁሉም"),
+                "Workspace" to (if (english) "Workspace" else "የሥራ ቦታ"),
+                "Image Lab" to (if (english) "Image Lab" else "ምስል"),
+                "Portrait & ID" to (if (english) "Portrait / ID" else "ፖርትሬት"),
+                "Background Lab" to (if (english) "Background" else "ጀርባ"),
+                "Print Studio" to (if (english) "Print Studio" else "ህትመት"),
+                "Design Studio" to (if (english) "Design Studio" else "ዲዛይን")
+            )
+            labels.forEach { (key, label) ->
+                val chip = AkiStudioUi.navigationChip(this@MainActivity, label, activeWorkspace == key) {
+                    activeWorkspace = key
+                    applyWorkspaceFilter(key)
+                    navigationButtons.forEach { (buttonKey, button) ->
+                        AkiStudioUi.setNavigationChipSelected(button, buttonKey == key)
+                    }
+                }
+                navigationButtons.add(key to chip)
+                addView(chip, LinearLayout.LayoutParams(
+                    if (profile.widthClass == WindowWidthClass.EXPANDED) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT,
+                    dp(if (profile.widthClass == WindowWidthClass.EXPANDED) 52 else 40)
+                ).apply {
+                    if (profile.widthClass == WindowWidthClass.EXPANDED) bottomMargin = dp(7) else rightMargin = dp(6)
+                })
+            }
         }
-        page.addView(navigation, 1)
+        if (profile.widthClass != WindowWidthClass.EXPANDED) page.addView(navigation, 1)
         applyWorkspaceFilter(activeWorkspace)
 
         page.addView(AkiStudioUi.spacer(this, 4))
@@ -392,7 +473,46 @@ class MainActivity : Activity() {
             )
             insets
         }
-        setContentView(scroll)
+        if (profile.widthClass == WindowWidthClass.EXPANDED) {
+            val shell = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setBackgroundColor(AkiStudioUi.INK) }
+            val density = resources.displayMetrics.density
+            val verticalHinge = foldSeparating && foldOrientation == FoldingFeature.ORIENTATION_VERTICAL
+            val railWidth = if (verticalHinge && foldBounds != null)
+                (foldBounds!!.left / density).toInt().coerceIn(76, 220) else 104
+            shell.addView(navigation, LinearLayout.LayoutParams(dp(railWidth), ViewGroup.LayoutParams.MATCH_PARENT))
+            if (verticalHinge && foldBounds != null) {
+                shell.addView(View(this), LinearLayout.LayoutParams(dp((foldBounds!!.width() / density).toInt().coerceAtLeast(1)), 1))
+            }
+            if (foldSeparating && foldOrientation == FoldingFeature.ORIENTATION_HORIZONTAL && foldBounds != null) {
+                scroll.setPadding(0, dp((foldBounds!!.bottom / density).toInt()), 0, 0)
+            }
+            shell.addView(scroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+            setContentView(shell)
+        } else {
+            val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(AkiStudioUi.INK) }
+            root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+            val bottomBar = android.widget.HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled = false
+                setBackgroundColor(AkiStudioUi.SURFACE)
+                addView(LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(8), dp(5), dp(8), dp(5))
+                    val commands = listOf(
+                        (if (english) "Undo" else "መልስ") to { undoEdit() },
+                        (if (english) "Redo" else "ድገም") to { redoEdit() },
+                        (if (english) "Compare" else "አወዳድር") to { toggleBeforeAfter() },
+                        (if (english) "Export" else "አውጣ") to { saveCopy() }
+                    )
+                    commands.forEach { (label, callback) ->
+                        addView(AkiStudioUi.toolbarButton(this@MainActivity, label, callback),
+                            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(48)).apply { rightMargin = dp(7) })
+                    }
+                })
+            }
+            root.addView(bottomBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58)))
+            setContentView(root)
+        }
     }
 
     private fun actionButton(label: String, action: () -> Unit) = Button(this).apply {
@@ -1157,31 +1277,131 @@ class MainActivity : Activity() {
     private fun editDesignLayer(index: Int) {
         if (index !in designLayers.indices) return
         val layer = designLayers[index]
+        if (layer.locked) {
+            showStatus(if (english) "Unlock this layer before editing its properties." else "ባህሪያቱን ከማስተካከልዎ በፊት ንብርብሩን ይክፈቱ።")
+            return
+        }
+        fun number(hintText: String, value: String, decimal: Boolean = false, signed: Boolean = false) =
+            EditText(this).apply {
+                hint = hintText
+                inputType = InputType.TYPE_CLASS_NUMBER or
+                    (if (decimal) InputType.TYPE_NUMBER_FLAG_DECIMAL else 0) or
+                    (if (signed) InputType.TYPE_NUMBER_FLAG_SIGNED else 0)
+                setSingleLine(true)
+                setText(value)
+            }
+        fun spinner(items: Array<String>, selected: String) = android.widget.Spinner(this).apply {
+            adapter = android.widget.ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, items)
+            setSelection(items.indexOf(selected).coerceAtLeast(0))
+        }
         val name = EditText(this).apply { hint = if (english) "Layer name" else "የንብርብር ስም"; setSingleLine(true); setText(layer.name) }
-        val x = EditText(this).apply { hint = "Center X (0–100%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.x * 100).toInt().toString()) }
-        val y = EditText(this).apply { hint = "Center Y (0–100%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.y * 100).toInt().toString()) }
-        val width = EditText(this).apply { hint = "Width (1–100%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.width * 100).toInt().toString()) }
-        val height = EditText(this).apply { hint = "Height (1–100%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.height * 100).toInt().toString()) }
-        val opacity = EditText(this).apply { hint = "Opacity (0–100%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.opacity * 100).toInt().toString()) }
-        val fillColor = EditText(this).apply { hint = "Fill/text color (#RRGGBB)"; setSingleLine(true); setText(String.format("#%06X", 0xFFFFFF and layer.fillColor)) }
-        val strokeColor = EditText(this).apply { hint = "Stroke color (#RRGGBB)"; setSingleLine(true); setText(String.format("#%06X", 0xFFFFFF and layer.strokeColor)) }
-        val fontScale = EditText(this).apply { hint = "Text size (1–20% of canvas)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.fontScale * 100).toInt().toString()) }
-        val strokeWidth = EditText(this).apply { hint = "Stroke width (0–8% of canvas)"; inputType = InputType.TYPE_CLASS_NUMBER; setText(kotlin.math.round(layer.strokeWidth * 100).toInt().toString()) }
-        val pathInput = EditText(this).apply { hint = "M 0.1 0.8 C ..."; minLines = 3; setText(layer.pathData); visibility = if (layer.shape == "CUSTOM_PATH") android.view.View.VISIBLE else android.view.View.GONE }
-        val bold = CheckBox(this).apply { text = if (english) "Bold typography" else "ደማቅ ጽሑፍ"; isChecked = layer.bold; visibility = if (layer.kind == "TEXT") android.view.View.VISIBLE else android.view.View.GONE }
-        val italic = CheckBox(this).apply { text = if (english) "Italic typography" else "ሰያፍ ጽሑፍ"; isChecked = layer.italic; visibility = if (layer.kind == "TEXT") android.view.View.VISIBLE else android.view.View.GONE }
+        val x = number("Center X (0–100%)", (layer.x * 100).toInt().toString())
+        val y = number("Center Y (0–100%)", (layer.y * 100).toInt().toString())
+        val width = number("Width (1–100%)", (layer.width * 100).toInt().toString())
+        val height = number("Height (1–100%)", (layer.height * 100).toInt().toString())
+        val rotationField = number("Rotation (−180 to 180°)", layer.rotationDegrees.toString(), decimal = true, signed = true)
+        val opacity = number("Opacity (0–100%)", (layer.opacity * 100).toInt().toString())
+        var selectedFill = layer.fillColor
+        var selectedStroke = layer.strokeColor
+        var selectedEffect = layer.effectColor
+        fun colorButton(label: String, initial: Int, onChange: (Int) -> Unit) = Button(this).apply {
+            text = label
+            isAllCaps = false
+            setTextColor(initial)
+            setBackgroundColor(0xFF243746.toInt())
+            setOnClickListener {
+                LayerColorPicker.show(this@MainActivity, initial, onChange)
+            }
+        }
+        val fillPicker = colorButton(if (english) "Choose fill / text color" else "የመሙያ / ጽሑፍ ቀለም ምረጥ", selectedFill) {
+            selectedFill = it
+            fillPickerSafeUpdate(this, it)
+        }
+        val strokePicker = colorButton(if (english) "Choose stroke color" else "የመስመር ቀለም ምረጥ", selectedStroke) {
+            selectedStroke = it
+            fillPickerSafeUpdate(strokePicker, it)
+        }
+        val effectPicker = colorButton(if (english) "Choose text-effect color" else "የጽሑፍ ተፅዕኖ ቀለም ምረጥ", selectedEffect) {
+            selectedEffect = it
+            fillPickerSafeUpdate(effectPicker, it)
+        }
+        val fontScale = number("Text size (1–20% of canvas)", (layer.fontScale * 100).toInt().toString())
+        val strokeWidth = number("Stroke width (0–8% of canvas)", kotlin.math.round(layer.strokeWidth * 100).toInt().toString(), decimal = true)
+        val bold = CheckBox(this).apply { text = if (english) "Bold typography" else "ደማቅ ጽሑፍ"; isChecked = layer.bold; visibility = if (layer.kind == "TEXT") View.VISIBLE else View.GONE }
+        val italic = CheckBox(this).apply { text = if (english) "Italic typography" else "ሰያፍ ጽሑፍ"; isChecked = layer.italic; visibility = if (layer.kind == "TEXT") View.VISIBLE else View.GONE }
+        val alignments = arrayOf("LEFT", "CENTER", "RIGHT")
+        val fonts = arrayOf("SANS", "ETHIOPIC_SYSTEM", "SERIF", "MONOSPACE", "CONDENSED", "MEDIUM")
+        val effects = arrayOf("NONE", "SHADOW", "OUTLINE")
+        val alignment = spinner(alignments, layer.textAlignment)
+        val font = spinner(fonts, layer.fontFamily)
+        val lineSpacing = number("Line spacing multiplier (0.8–2.0)", layer.lineSpacingMultiplier.toString(), decimal = true)
+        val effect = spinner(effects, layer.textEffect)
+        val effectWidth = number("Effect width (0–3% of canvas)", (layer.effectWidth * 100f).toString(), decimal = true)
+        val shapeTypes = arrayOf("RECTANGLE", "ELLIPSE", "LINE", "CUSTOM_PATH")
+        val shape = spinner(shapeTypes, layer.shape)
+        val pathInput = EditText(this).apply {
+            hint = "M 0.1 0.8 C ..."
+            minLines = 3
+            setText(layer.pathData)
+            visibility = if (layer.shape == "CUSTOM_PATH") View.VISIBLE else View.GONE
+        }
+        shape.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                pathInput.visibility = if (shapeTypes[position] == "CUSTOM_PATH") View.VISIBLE else View.GONE
+            }
+        }
         val visible = CheckBox(this).apply { text = if (english) "Visible" else "የሚታይ"; isChecked = layer.visible }
-        val locked = CheckBox(this).apply { text = if (english) "Lock layer" else "ንብርብሩን ቆልፍ"; isChecked = layer.locked }
         val fields = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(8), dp(20), 0)
-            listOf(name, x, y, width, height, opacity, fillColor, strokeColor, fontScale, strokeWidth, pathInput, bold, italic, visible, locked).forEach { addView(it) }
+            setPadding(dp(20), dp(8), dp(20), dp(4))
+            addView(name)
+            addView(TextView(this@MainActivity).apply { text = if (english) "Transform · normalized canvas coordinates" else "ቦታና መጠን · በካንቫስ መጠን" })
+            listOf(x, y, width, height, rotationField, opacity, fillPicker, strokePicker).forEach(::addView)
+            if (layer.kind == "TEXT") {
+                addView(TextView(this@MainActivity).apply { text = if (english) "Typography" else "የጽሑፍ ባህሪያት" })
+                listOf(fontScale, alignment, font, lineSpacing, effect, effectWidth, effectPicker, bold, italic).forEach(::addView)
+            } else {
+                addView(TextView(this@MainActivity).apply { text = if (english) "Vector properties" else "የቬክተር ባህሪያት" })
+                addView(shape); addView(strokeWidth); addView(pathInput)
+            }
+            addView(visible)
         }
+        val presetList = DesignStylePresetStore.all(this)
+        val presetPicker = android.widget.Spinner(this).apply {
+            adapter = android.widget.ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, presetList.map { it.name })
+        }
+        val presetApply = Button(this).apply {
+            text = if (english) "Apply selected style preset" else "የተመረጠውን የቅጥ አማራጭ ተግብር"
+            isAllCaps = false
+            setOnClickListener {
+                val preset = presetList.getOrNull(presetPicker.selectedItemPosition) ?: return@setOnClickListener
+                try {
+                    designLayers[index] = preset.applyTo(designLayers[index])
+                    dialog.dismiss()
+                    refreshPreview()
+                    showStatus(if (english) "Style preset applied." else "የቅጥ አማራጩ ተተግብሯል።")
+                } catch (error: Exception) {
+                    showStatus(if (english) "Preset could not be applied: ${error.message}" else "የቅጥ አማራጩ ሊተገበር አልቻለም።")
+                }
+            }
+        }
+        fields.addView(TextView(this).apply { text = if (english) "Reusable styles (saved only on this device)" else "እንደገና የሚጠቀሙ ቅጦች (በዚህ መሣሪያ ብቻ)" })
+        fields.addView(presetPicker)
+        fields.addView(presetApply)
         val dialog = AlertDialog.Builder(this)
             .setTitle(layer.name)
-            .setView(fields)
+            .setView(ScrollView(this).apply { addView(fields) })
             .setNegativeButton(if (english) "Close" else "ዝጋ", null)
-            .setNeutralButton(if (english) "More actions" else "ተጨማሪ ተግባራት") { _, _ -> showDesignLayerActions(index) }
+            .setNeutralButton(if (english) "Save style preset" else "የቅጥ አማራጭ አስቀምጥ") { _, _ ->
+                val input = EditText(this).apply { hint = if (english) "Preset name" else "የቅጥ ስም"; setSingleLine(true) }
+                AlertDialog.Builder(this).setTitle(if (english) "Save current layer style" else "የአሁኑን ቅጥ አስቀምጥ")
+                    .setView(input).setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+                    .setPositiveButton(if (english) "Save" else "አስቀምጥ") { _, _ ->
+                        val ok = DesignStylePresetStore.save(this, DesignStylePresetStore.fromLayer(input.text.toString().trim(), designLayers[index]))
+                        showStatus(if (ok) (if (english) "Style preset saved on this device." else "የቅጥ አማራጩ በዚህ መሣሪያ ተቀምጧል።") else (if (english) "Preset name invalid or local preset limit reached." else "የቅጥ ስም ትክክል አይደለም ወይም ገደቡ ደርሷል።"))
+                    }.show()
+            }
             .setPositiveButton(if (english) "Save properties" else "ባህሪያት አስቀምጥ", null)
             .create()
         dialog.setOnShowListener {
@@ -1191,33 +1411,53 @@ class MainActivity : Activity() {
                 val py = y.text.toString().toIntOrNull()
                 val pw = width.text.toString().toIntOrNull()
                 val ph = height.text.toString().toIntOrNull()
+                val rot = rotationField.text.toString().toFloatOrNull()
                 val po = opacity.text.toString().toIntOrNull()
-                val font = fontScale.text.toString().toIntOrNull()
-                val stroke = strokeWidth.text.toString().toIntOrNull()
-                val fill = runCatching { android.graphics.Color.parseColor(fillColor.text.toString().trim()) }.getOrNull()
-                val outline = runCatching { android.graphics.Color.parseColor(strokeColor.text.toString().trim()) }.getOrNull()
+                val fontValue = fontScale.text.toString().toIntOrNull()
+                val strokeValue = strokeWidth.text.toString().toFloatOrNull()
+                val spacingValue = lineSpacing.text.toString().toFloatOrNull()
+                val effectValue = effectWidth.text.toString().toFloatOrNull()
                 if (nx.isBlank() || nx.length > 48 || px == null || px !in 0..100 ||
                     py == null || py !in 0..100 || pw == null || pw !in 1..100 ||
-                    ph == null || ph !in 1..100 || po == null || po !in 0..100 ||
-                    font == null || font !in 1..20 || stroke == null || stroke !in 0..8 ||
-                    fill == null || outline == null) {
-                    showStatus(if (english) "Layer properties or colors are outside their allowed ranges." else "የንብርብር ባህሪያት ወይም ቀለሞች ትክክል አይደሉም።")
+                    ph == null || ph !in 1..100 || rot == null || rot !in -180f..180f ||
+                    po == null || po !in 0..100 || fontValue == null || fontValue !in 1..20 ||
+                    strokeValue == null || strokeValue !in 0f..8f || spacingValue == null || spacingValue !in 0.8f..2f ||
+                    effectValue == null || effectValue !in 0f..3f) {
+                    showStatus(if (english) "Check position, size, rotation, opacity and style values." else "ቦታን፣ መጠንን፣ ማዞርን፣ ግልጽነትንና የቅጥ እሴቶችን ያረጋግጡ።")
                     return@setOnClickListener
                 }
-                designLayers[index] = layer.copy(
-                    name = nx, x = px / 100f, y = py / 100f,
-                    width = pw / 100f, height = ph / 100f,
-                    opacity = po / 100f, fillColor = fill, strokeColor = outline,
-                    fontScale = font / 100f, strokeWidth = stroke / 100f,
-                    bold = bold.isChecked, italic = italic.isChecked,
-                    pathData = if (layer.shape == "CUSTOM_PATH") pathInput.text.toString().trim() else layer.pathData,
-                    visible = visible.isChecked, locked = locked.isChecked
-                ).validated()
+                val next = try {
+                    layer.copy(
+                        name = nx, x = px / 100f, y = py / 100f, width = pw / 100f, height = ph / 100f,
+                        rotationDegrees = rot, opacity = po / 100f,
+                        fillColor = selectedFill, strokeColor = selectedStroke,
+                        fontScale = fontValue / 100f, strokeWidth = strokeValue / 100f,
+                        bold = bold.isChecked, italic = italic.isChecked,
+                        textAlignment = alignments[alignment.selectedItemPosition],
+                        fontFamily = fonts[font.selectedItemPosition],
+                        lineSpacingMultiplier = spacingValue,
+                        textEffect = effects[effect.selectedItemPosition],
+                        effectColor = selectedEffect, effectWidth = effectValue / 100f,
+                        shape = if (layer.kind == "SHAPE") shapeTypes[shape.selectedItemPosition] else layer.shape,
+                        pathData = if (layer.kind == "SHAPE" && shapeTypes[shape.selectedItemPosition] == "CUSTOM_PATH") pathInput.text.toString().trim() else layer.pathData,
+                        visible = visible.isChecked
+                    ).validated()
+                } catch (error: Exception) {
+                    showStatus(if (english) "Invalid layer values: ${error.message}" else "የንብርብር እሴቶች ትክክል አይደሉም።")
+                    return@setOnClickListener
+                }
+                designLayers[index] = next
+                selectedDesignLayerId = next.id
                 dialog.dismiss()
                 refreshPreview()
             }
         }
         dialog.show()
+    }
+
+    private fun fillPickerSafeUpdate(button: Button, color: Int) {
+        button.setTextColor(color)
+        button.text = String.format("#%08X", color)
     }
 
     private fun showDesignLayerActions(index: Int) {
