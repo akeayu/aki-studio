@@ -16,10 +16,9 @@ object ExportFileNaming {
     }
 
     fun safeBaseName(value: String, extension: String): String {
+        require(extension.matches(Regex("[A-Za-z0-9]{1,8}"))) { "Invalid file extension" }
         val ext = ".$extension"
-        val withoutExtension = value.trim().let {
-            if (it.endsWith(ext, ignoreCase = true)) it.dropLast(ext.length) else it
-        }
+        val withoutExtension = value.trim().replace(Regex("(?i)\\\\.(jpg|jpeg|png|pdf)$"), "")
         val safe = withoutExtension
             .replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_")
             .replace(Regex("\\s+"), "_")
