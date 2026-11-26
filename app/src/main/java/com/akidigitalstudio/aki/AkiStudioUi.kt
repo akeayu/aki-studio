@@ -24,10 +24,13 @@ object AkiStudioUi {
 
     data class Action(val symbol: String, val title: String, val subtitle: String, val onClick: () -> Unit)
 
-    fun page(context: Context) = LinearLayout(context).apply {
+    fun page(context: Context, profile: AdaptiveUiProfile = AdaptiveUiProfile.from(context)) = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(dp(context, 16), dp(context, 18), dp(context, 16), dp(context, 28))
+        gravity = Gravity.CENTER_HORIZONTAL
+        setPadding(dp(context, profile.pagePaddingDp), dp(context, profile.pagePaddingDp + 4), dp(context, profile.pagePaddingDp), dp(context, profile.pagePaddingDp + 12))
         setBackgroundColor(INK)
+        clipChildren = false
+        clipToPadding = false
     }
 
     fun header(context: Context, english: Boolean, languageAction: () -> Unit): View {
@@ -84,7 +87,7 @@ object AkiStudioUi {
         setPadding(dp(context, 9), dp(context, 6), dp(context, 9), dp(context, 6))
     }
 
-    fun panel(context: Context, title: String, subtitle: String, actions: List<Action>, english: Boolean): LinearLayout {
+    fun panel(context: Context, title: String, subtitle: String, actions: List<Action>, english: Boolean, profile: AdaptiveUiProfile = AdaptiveUiProfile.from(context)): LinearLayout {
         val panel = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             background = rounded(context, SURFACE, OUTLINE, 20f)
@@ -108,23 +111,28 @@ object AkiStudioUi {
         heading.addView(badge(context, actions.size.toString().padStart(2, '0') + " " + if (english) "TOOLS" else "መሣሪያዎች", CYAN))
         panel.addView(heading)
         panel.addView(space(context, 12))
-        panel.addView(actionGrid(context, actions))
+        panel.addView(actionGrid(context, actions, profile.actionColumns))
         return panel
     }
 
-    fun actionGrid(context: Context, actions: List<Action>): LinearLayout {
+    fun actionGrid(context: Context, actions: List<Action>, columns: Int = AdaptiveUiProfile.from(context).actionColumns): LinearLayout {
+        val safeColumns = columns.coerceIn(1, 4)
         val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        actions.chunked(2).forEach { pair ->
+        actions.chunked(safeColumns).forEach { group ->
             val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
-            pair.forEachIndexed { index, action ->
-                row.addView(actionTile(context, action), LinearLayout.LayoutParams(0, dp(context, 96), 1f).apply {
-                    if (index == 0) rightMargin = dp(context, 6) else leftMargin = dp(context, 6)
+            group.forEachIndexed { index, action ->
+                row.addView(actionTile(context, action), LinearLayout.LayoutParams(0, dp(context, if (safeColumns >= 4) 104 else 96), 1f).apply {
+                    leftMargin = dp(context, if (index == 0) 0 else 4)
+                    rightMargin = dp(context, if (index == group.lastIndex) 0 else 4)
                     bottomMargin = dp(context, 8)
                 })
             }
-            if (pair.size == 1) row.addView(View(context), LinearLayout.LayoutParams(0, dp(context, 76), 1f).apply {
-                leftMargin = dp(context, 6)
-            })
+            repeat(safeColumns - group.size) {
+                row.addView(View(context), LinearLayout.LayoutParams(0, dp(context, 96), 1f).apply {
+                    leftMargin = dp(context, 4)
+                    rightMargin = dp(context, 4)
+                })
+            }
             grid.addView(row)
         }
         return grid
@@ -156,7 +164,7 @@ object AkiStudioUi {
         }
         copy.addView(TextView(context).apply {
             text = action.title
-            textSize = 11f
+            textSize = 12f
             maxLines = 2
             gravity = Gravity.CENTER
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
@@ -164,7 +172,7 @@ object AkiStudioUi {
         })
         copy.addView(TextView(context).apply {
             text = action.subtitle
-            textSize = 8f
+            textSize = 10f
             maxLines = 1
             gravity = Gravity.CENTER
             setTextColor(MUTED)
