@@ -128,7 +128,39 @@ object LocalProjectStore {
         val values = p.stringPropertyNames()
             .filter { it.startsWith("edit.") }
             .associate { it.removePrefix("edit.") to p.getProperty(it) }
+        require(values["backgroundReplaceEnabled"] != "true" || mask != null) {
+            "Project background replacement is enabled but its mask is missing"
+        }
+        validateEditValues(values)
         return ProjectData(summary, source, values, mask)
+    }
+
+    private fun validateEditValues(values: Map<String, String>) {
+        val rotation = values["rotation"]?.toFloatOrNull() ?: 0f
+        require(rotation.isFinite() && rotation in 0f..270f && rotation % 90f == 0f) { "Invalid project rotation" }
+        values["cropRatio"]?.takeIf { it.isNotBlank() }?.toFloatOrNull()?.let {
+            require(it.isFinite() && it in 0.1f..10f) { "Invalid project crop ratio" }
+        }
+        for (key in listOf("outputWidthPx", "outputHeightPx", "resizeMaxWidthPx", "resizeMaxHeightPx")) {
+            values[key]?.takeIf { it.isNotBlank() }?.toIntOrNull()?.let {
+                require(it in 1..4096) { "Invalid project pixel dimension" }
+            }
+        }
+        val outputWidth = values["outputWidthPx"]?.toIntOrNull()
+        val outputHeight = values["outputHeightPx"]?.toIntOrNull()
+        if (outputWidth != null && outputHeight != null) {
+            require(outputWidth.toLong() * outputHeight.toLong() <= 4_000_000L) { "Project output exceeds the pixel limit" }
+        }
+        val maxWidth = values["resizeMaxWidthPx"]?.toIntOrNull()
+        val maxHeight = values["resizeMaxHeightPx"]?.toIntOrNull()
+        if (maxWidth != null && maxHeight != null) {
+            require(maxWidth.toLong() * maxHeight.toLong() <= 4_000_000L) { "Project resize exceeds the pixel limit" }
+        }
+        for (key in listOf("cropHorizontal", "cropVertical")) {
+            values[key]?.toFloatOrNull()?.let { require(it.isFinite() && it in 0f..1f) { "Invalid crop alignment" } }
+        }
+        values["headHeightPercent"]?.toIntOrNull()?.let { require(it in 40..90) { "Invalid head guide" } }
+        values["eyeLinePercent"]?.toIntOrNull()?.let { require(it in 20..70) { "Invalid eye guide" } }
     }
 
     fun duplicate(root: File, summary: ProjectSummary): ProjectSummary {
