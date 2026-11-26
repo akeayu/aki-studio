@@ -512,6 +512,7 @@ class MainActivity : Activity() {
                         (if (english) "Undo" else "መልስ") to { undoEdit() },
                         (if (english) "Redo" else "ድገም") to { redoEdit() },
                         (if (english) "Compare" else "አወዳድር") to { toggleBeforeAfter() },
+                        (if (english) "Inspector" else "መቆጣጠሪያ") to { toggleInspectorPanel() },
                         (if (english) "Export" else "አውጣ") to { saveCopy() }
                     )
                     commands.forEach { (label, callback) ->
