@@ -194,8 +194,8 @@ class DesignLayerOverlayView(context: Context) : View(context) {
                         val localNow = inverseRotate(event.x, event.y, rect.centerX(), rect.centerY(), base.rotationDegrees)
                         val localDx = (localNow.first - downLocalX) / imageBounds.width()
                         val localDy = (localNow.second - downLocalY) / imageBounds.height()
-                        val nw = (base.width + if (right) localDx else -localDx).coerceIn(0.01f, 1f)
-                        val nh = (base.height + if (bottom) localDy else -localDy).coerceIn(0.01f, 1f)
+                        val nw = (base.width + (if (right) localDx else -localDx)).coerceIn(0.01f, 1f)
+                        val nh = (base.height + (if (bottom) localDy else -localDy)).coerceIn(0.01f, 1f)
                         val radians = Math.toRadians(base.rotationDegrees.toDouble())
                         val shiftX = (localDx * kotlin.math.cos(radians) - localDy * kotlin.math.sin(radians)) / 2f
                         val shiftY = (localDx * kotlin.math.sin(radians) + localDy * kotlin.math.cos(radians)) / 2f
