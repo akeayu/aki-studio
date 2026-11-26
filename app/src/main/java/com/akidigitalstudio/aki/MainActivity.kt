@@ -53,6 +53,7 @@ class MainActivity : Activity() {
     private var warmth = 0
     private var english = false
     private var cropRatio: Float? = null
+    private var cropRectNormalized: FloatArray? = null
     private var outputWidthPx: Int? = null
     private var outputHeightPx: Int? = null
     private var resizeMaxWidthPx: Int? = null
@@ -169,6 +170,10 @@ class MainActivity : Activity() {
         row11.addView(actionButton(if (english) "Image adjustments" else "የምስል ማስተካከያ") { configureImageAdjustments() }, weighted())
         page.addView(row11)
 
+        val row12 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        row12.addView(actionButton(if (english) "Fine crop" else "ትክክለኛ ቁረጥ") { openInteractiveCrop() }, weighted())
+        page.addView(row12)
+
         val language = Button(this).apply {
             text = if (english) "አማርኛ" else "English"
             setOnClickListener {
@@ -251,7 +256,11 @@ class MainActivity : Activity() {
                 image.recycle()
                 image = rotated
             }
-            cropRatio?.let { ratio ->
+            cropRectNormalized?.let { rect ->
+                val cropped = ImageEditorEngine.cropNormalized(image, rect[0], rect[1], rect[2], rect[3])
+                image.recycle()
+                image = cropped
+            } ?: cropRatio?.let { ratio ->
                 val cropped = ImageEditorEngine.cropCenter(image, ratio, cropHorizontal, cropVertical)
                 image.recycle()
                 image = cropped
@@ -314,6 +323,7 @@ class MainActivity : Activity() {
             .setTitle(if (english) "Center crop" else "መሃል ላይ መቁረጥ")
             .setItems(labels) { _, which ->
                 cropRatio = ratios[which]
+                cropRectNormalized = null
                 if (which == 0) { cropHorizontal = 0.5f; cropVertical = 0.5f }
                 outputWidthPx = null
                 outputHeightPx = null
@@ -324,6 +334,52 @@ class MainActivity : Activity() {
             }
             .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
             .show()
+    }
+
+    private fun openInteractiveCrop() {
+        val uri = sourceUri ?: return noPhoto()
+        var source: Bitmap? = null
+        try {
+            source = decodeBounded(uri, PREVIEW_MAX_EDGE)
+            repeat((rotation / 90f).toInt()) {
+                val rotated = ImageEditorEngine.rotate(source!!, 90f)
+                source?.recycle()
+                source = rotated
+            }
+            val bitmap = source ?: throw IOException("Could not prepare crop image")
+            val ratio = cropRatio ?: (bitmap.width.toFloat() / bitmap.height.toFloat())
+            val cropView = InteractiveCropView(this, bitmap, ratio, cropRectNormalized)
+            val dialog = AlertDialog.Builder(this)
+                .setTitle(if (english) "Fine crop — drag the frame or corners" else "ትክክለኛ ቁረጥ — ፍሬሙን ወይም ማዕዘኖቹን ይጎትቱ")
+                .setView(cropView)
+                .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+                .setPositiveButton(if (english) "Apply crop" else "ቁረጡን ተግብር", null)
+                .create()
+            dialog.setOnDismissListener { if (!bitmap.isRecycled) bitmap.recycle() }
+            dialog.setOnShowListener {
+                dialog.window?.setLayout(
+                    (resources.displayMetrics.widthPixels * 0.94f).toInt(),
+                    (resources.displayMetrics.heightPixels * 0.78f).toInt()
+                )
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                    val rect = cropView.normalizedRect()
+                    if (rect.size != 4 || rect[2] <= rect[0] || rect[3] <= rect[1]) {
+                        showStatus(if (english) "Crop area is invalid." else "የቁረጥ ቦታው ትክክል አይደለም።")
+                        return@setOnClickListener
+                    }
+                    cropRectNormalized = rect
+                    cropLabel = if (english) "Fine crop" else "ትክክለኛ ቁረጥ"
+                    outputWidthPx = null; outputHeightPx = null
+                    resizeMaxWidthPx = null; resizeMaxHeightPx = null
+                    dialog.dismiss()
+                    refreshPreview()
+                }
+            }
+            dialog.show()
+        } catch (error: Exception) {
+            source?.recycle()
+            showStatus(if (english) "Could not open crop editor: ${error.message ?: "image error"}" else "የቁረጥ አርታዒውን መክፈት አልተቻለም።")
+        }
     }
 
     private fun chooseCropPosition() {
@@ -472,6 +528,7 @@ class MainActivity : Activity() {
         saturation = 100
         warmth = 0
         cropRatio = null
+        cropRectNormalized = null
         outputWidthPx = null
         outputHeightPx = null
         resizeMaxWidthPx = null
@@ -602,6 +659,10 @@ class MainActivity : Activity() {
         "saturation" to saturation.toString(),
         "warmth" to warmth.toString(),
         "cropRatio" to (cropRatio?.toString() ?: ""),
+        "cropLeft" to (cropRectNormalized?.get(0)?.toString() ?: ""),
+        "cropTop" to (cropRectNormalized?.get(1)?.toString() ?: ""),
+        "cropRight" to (cropRectNormalized?.get(2)?.toString() ?: ""),
+        "cropBottom" to (cropRectNormalized?.get(3)?.toString() ?: ""),
         "outputWidthPx" to (outputWidthPx?.toString() ?: ""),
         "outputHeightPx" to (outputHeightPx?.toString() ?: ""),
         "resizeMaxWidthPx" to (resizeMaxWidthPx?.toString() ?: ""),
@@ -708,6 +769,7 @@ class MainActivity : Activity() {
             saturation = values["saturation"]?.toIntOrNull()?.coerceIn(0, 200) ?: 100
             warmth = values["warmth"]?.toIntOrNull()?.coerceIn(-100, 100) ?: 0
             cropRatio = values["cropRatio"]?.toFloatOrNull()?.takeIf { it.isFinite() && it > 0f }
+            cropRectNormalized = listOf("cropLeft", "cropTop", "cropRight", "cropBottom").map { values[it]?.toFloatOrNull() }.takeIf { it.all { value -> value != null } }?.map { it!! }?.toFloatArray()
             outputWidthPx = values["outputWidthPx"]?.toIntOrNull()
             outputHeightPx = values["outputHeightPx"]?.toIntOrNull()
             resizeMaxWidthPx = values["resizeMaxWidthPx"]?.toIntOrNull()
