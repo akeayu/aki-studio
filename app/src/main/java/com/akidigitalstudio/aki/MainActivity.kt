@@ -579,6 +579,7 @@ class MainActivity : Activity() {
         // Invalidate any older request and give the worker its own immutable pixel snapshot.
         segmentationRequestId += 1
         val requestId = segmentationRequestId
+        val requestedBackgroundColor = backgroundColor
         segmentationFuture?.cancel(true)
         val sourceSnapshot = try {
             currentPreview.copy(Bitmap.Config.ARGB_8888, false)
@@ -596,7 +597,7 @@ class MainActivity : Activity() {
             val bundledModel = LiteRtSelfieSegmenter.createOrNull(applicationContext)
             try {
                 result = LocalForegroundSegmentationEngine(model = bundledModel).segment(sourceSnapshot)
-                replacement = BackgroundReplacementEngine.replaceSolid(sourceSnapshot, result.foregroundMask, backgroundColor)
+                replacement = BackgroundReplacementEngine.replaceSolid(sourceSnapshot, result.foregroundMask, requestedBackgroundColor)
             } catch (error: Exception) {
                 failure = error
             } finally {
