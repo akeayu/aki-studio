@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: android-verification-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unit-and-build:
     name: JVM tests and debug APK
@@ -115,8 +119,8 @@ jobs:
             gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectedWidthClass=medium
 
             states="$(adb shell cmd device_state print-states)"
-            printf '%s\\n' "$states"
-            half_open_id="$(printf '%s\\n' "$states" | sed -n "s/.*identifier=\\([0-9][0-9]*\\), name='\\(HALF_OPENED\\|HALF_FOLDED\\|TENT\\)'.*/\\1/p" | head -n 1)"
+            echo "$states"
+            half_open_id="$(echo "$states" | grep -oE "identifier=[0-9]+, name='(HALF_OPENED|HALF_FOLDED|TENT)'" | head -n 1 | cut -d= -f2 | cut -d, -f1)"
             if [ -z "$half_open_id" ]; then
               echo "Foldable emulator does not expose a half-open device state."
               exit 1
