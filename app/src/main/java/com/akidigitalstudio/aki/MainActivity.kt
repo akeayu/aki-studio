@@ -916,9 +916,15 @@ class MainActivity : Activity() {
 
     private fun showGroupTransformDialog(ids: Set<String>) {
         val fields = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
-        fun numeric(hintText: String, value: String): EditText = EditText(this).apply {
-            hint = hintText; inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED or InputType.TYPE_NUMBER_FLAG_DECIMAL; setText(value)
-        }.also(fields::addView)
+        fun numeric(hintText: String, value: String): EditText {
+            val input = EditText(this).apply {
+                hint = hintText
+                inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED or InputType.TYPE_NUMBER_FLAG_DECIMAL
+                setText(value)
+            }
+            fields.addView(input)
+            return input
+        }
         val dx = numeric(if (english) "Horizontal shift (%)" else "አግድም ማንቀሳቀስ (%)", "0")
         val dy = numeric(if (english) "Vertical shift (%)" else "ቁመታዊ ማንቀሳቀስ (%)", "0")
         val scale = numeric(if (english) "Scale (%) — 100 unchanged" else "የመጠን ለውጥ (%) — 100 መደበኛ", "100")
