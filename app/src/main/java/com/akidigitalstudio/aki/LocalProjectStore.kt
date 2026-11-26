@@ -111,5 +111,33 @@ object LocalProjectStore {
         return ProjectData(summary, source, values, mask)
     }
 
-    fun delete(summary: ProjectSummary): Boolean = summary.directory.deleteRecursively()
+    fun duplicate(root: File, summary: ProjectSummary): ProjectSummary {
+        val data = load(summary)
+        return try {
+            FileInputStream(data.sourceFile).use { input ->
+                save(root, "${summary.name} copy", input, data.values, data.mask)
+            }
+        } finally {
+            data.mask?.recycle()
+        }
+    }
+
+    fun rename(summary: ProjectSummary, newName: String): ProjectSummary {
+        val safeName = newName.trim().take(60)
+        require(safeName.isNotBlank()) { "Project name is required" }
+        val manifest = File(summary.directory, MANIFEST)
+        val properties = Properties().apply { FileInputStream(manifest).use(::load) }
+        val now = System.currentTimeMillis()
+        properties.setProperty("name", safeName)
+        properties.setProperty("updatedAt", now.toString())
+        FileOutputStream(manifest).use { properties.store(it, "Aki Studio local project v1") }
+        return summary.copy(name = safeName, updatedAt = now)
+    }
+
+    fun delete(summary: ProjectSummary): Boolean {
+        val root = summary.directory.parentFile?.canonicalFile ?: return false
+        val expected = File(root, summary.id).canonicalFile
+        if (expected != summary.directory.canonicalFile || root.name != "projects") return false
+        return summary.directory.deleteRecursively()
+    }
 }
