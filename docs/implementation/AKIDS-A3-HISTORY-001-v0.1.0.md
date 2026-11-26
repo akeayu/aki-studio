@@ -30,7 +30,9 @@
 ## Verification
 
 - Added seven JUnit tests for snapshot recording, undo/redo, redo-branch invalidation, capacity bounds, defensive copying, capacity validation and empty history.
-- Static source inspection: PASS.
+- Static source inspection: PASS (10/10 repository checks).
+- Standalone Kotlin compilation of the actual `EditHistory.kt` source: PASS.
+- Standalone behavioral harness: PASS for record/undo, redo-branch invalidation, capacity bounds and defensive snapshot copying.
 - JUnit/Gradle execution: NOT RUN (Android SDK/Gradle toolchain unavailable in the current execution environment).
 - Android device interaction, memory profiling and project reopen behavior: NOT RUN.
 
