@@ -810,6 +810,57 @@ class MainActivity : Activity() {
             .show()
     }
 
+    private fun requestExportFileName(type: String, extension: String, onReady: (String) -> Unit) {
+        val preferences = getSharedPreferences("export_naming", MODE_PRIVATE)
+        val patternInput = EditText(this).apply {
+            hint = if (english) "File name or pattern" else "የፋይል ስም ወይም አቀማመጥ"
+            setSingleLine(true)
+            setText(preferences.getString("pattern", ExportFileNaming.DEFAULT_PATTERN))
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        }
+        val saveDefault = CheckBox(this).apply {
+            text = if (english) "Save this as my default filename pattern" else "ይህን እንደ ነባሪ የፋይል ስም አቀማመጤ አስቀምጥ"
+            isChecked = false
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+            addView(patternInput)
+            addView(TextView(this@MainActivity).apply {
+                text = if (english) "Tokens: {type} and {date}. Example: Studio_{type}_{date}. You may also enter a fixed name." else "ምልክቶች፦ {type} እና {date}። ምሳሌ፦ Studio_{type}_{date}። ቋሚ ስምም ማስገባት ይችላሉ።"
+                textSize = 12f
+                setPadding(0, dp(6), 0, dp(6))
+            })
+            addView(saveDefault)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(if (english) "Name your file" else "የፋይሉን ስም ይስጡ")
+            .setMessage(if (english) "Choose a one-time name or save your own reusable naming pattern. The file is saved locally." else "ለዚህ ጊዜ ብቻ ስም ይምረጡ ወይም የራስዎን ተደጋጋሚ የስም አቀማመጥ ያስቀምጡ። ፋይሉ በመሣሪያው ላይ ይቀመጣል።")
+            .setView(content)
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Continue" else "ቀጥል", null)
+            .create().also { dialog ->
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val rawPattern = patternInput.text.toString().trim()
+                        try {
+                            require(rawPattern.isNotBlank()) { "Enter a file name or naming pattern" }
+                            val expanded = ExportFileNaming.expand(rawPattern, type)
+                            val safeName = ExportFileNaming.safeBaseName(expanded, extension)
+                            if (saveDefault.isChecked) {
+                                preferences.edit().putString("pattern", rawPattern).apply()
+                            }
+                            dialog.dismiss()
+                            onReady(safeName)
+                        } catch (error: Exception) {
+                            showStatus(if (english) "Invalid file name: ${error.message}" else "የፋይል ስሙ ትክክል አይደለም።")
+                        }
+                    }
+                }
+                dialog.show()
+            }
+    }
+
     private fun confirmSaveCopy(format: Bitmap.CompressFormat) {
         val dimensions = (previewBitmap?.width ?: 0).toString() + " × " + (previewBitmap?.height ?: 0) + " px"
         val isPng = format == Bitmap.CompressFormat.PNG
@@ -818,11 +869,13 @@ class MainActivity : Activity() {
             .setTitle(if (english) "Confirm export" else "የፎቶ ማስቀመጥን ያረጋግጡ")
             .setMessage(if (english) "Save a new $label copy ($dimensions) to Pictures/Aki Studio? The original file will not be changed." else "አዲስ $label ቅጂ ($dimensions) በPictures/Aki Studio ይቀመጥ? ዋናው ፋይል አይቀየርም።")
             .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
-            .setPositiveButton(if (english) "Save copy" else "ቅጂ አስቀምጥ") { _, _ -> performSaveCopy(format) }
+            .setPositiveButton(if (english) "Save copy" else "ቅጂ አስቀምጥ") { _, _ ->
+                requestExportFileName("photo", if (isPng) "png" else "jpg") { fileName -> performSaveCopy(format, fileName) }
+            }
             .show()
     }
 
-    private fun performSaveCopy(format: Bitmap.CompressFormat) {
+    private fun performSaveCopy(format: Bitmap.CompressFormat, fileName: String) {
         if (sourceUri == null) return noPhoto()
         val isPng = format == Bitmap.CompressFormat.PNG
         val extension = if (isPng) "png" else "jpg"
@@ -833,7 +886,7 @@ class MainActivity : Activity() {
             val output = buildEditedBitmap(EXPORT_MAX_EDGE)
             try {
                 val values = ContentValues().apply {
-                    put(MediaStore.Images.Media.DISPLAY_NAME, "aki_${System.currentTimeMillis()}.$extension")
+                    put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
                     put(MediaStore.Images.Media.MIME_TYPE, mimeType)
                     put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Aki Studio")
                     put(MediaStore.Images.Media.IS_PENDING, 1)
@@ -1229,13 +1282,13 @@ class MainActivity : Activity() {
                     return@setOnClickListener
                 }
                 dialog.dismiss()
-                exportPrintSheet(columns, rows)
+                requestExportFileName("print_sheet", "pdf") { fileName -> exportPrintSheet(columns, rows, fileName) }
             }
         }
         dialog.show()
     }
 
-    private fun exportPrintSheet(columns: Int, rows: Int) {
+    private fun exportPrintSheet(columns: Int, rows: Int, fileName: String) {
         var photo: Bitmap? = null
         val document = PdfDocument()
         try {
@@ -1266,7 +1319,7 @@ class MainActivity : Activity() {
             }
             document.finishPage(page)
             val values = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, "aki_print_${System.currentTimeMillis()}.pdf")
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
                 put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents/Aki Studio")
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
