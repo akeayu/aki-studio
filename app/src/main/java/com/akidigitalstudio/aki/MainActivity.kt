@@ -277,6 +277,33 @@ class MainActivity : Activity() {
             )
         )
 
+        fun applyWorkspaceFilter(key: String) {
+            val selectedIndex = when (key) {
+                "Workspace" -> 0
+                "Image Lab" -> 1
+                "Portrait & ID" -> 2
+                "Background Lab" -> 3
+                "Print Studio" -> 4
+                "Design Studio" -> 5
+                else -> -1
+            }
+            workspacePanels.forEachIndexed { index, (title, view) ->
+                val expectedTitle = when (index) {
+                    0 -> if (english) "Workspace" else "የሥራ ቦታ"
+                    1 -> if (english) "Image Lab" else "የምስል ላብራቶሪ"
+                    2 -> if (english) "Portrait & ID" else "ፖርትሬትና መታወቂያ"
+                    3 -> if (english) "Background Lab" else "የጀርባ ላብራቶሪ"
+                    4 -> if (english) "Print Studio" else "የህትመት ስቱዲዮ"
+                    else -> if (english) "Design Studio" else "የዲዛይን ስቱዲዮ"
+                }
+                view.visibility = if (key == "All" || (selectedIndex >= 0 && index == selectedIndex && title == expectedTitle)) View.VISIBLE else View.GONE
+            }
+            if (profile.panelColumns > 1) {
+                primaryPanelColumn.visibility = if (key == "All" || selectedIndex < 0 || selectedIndex % 2 == 0) View.VISIBLE else View.GONE
+                secondaryPanelColumn.visibility = if (key == "All" || selectedIndex < 0 || selectedIndex % 2 == 1) View.VISIBLE else View.GONE
+            }
+        }
+
         // Contextual command strip: common actions remain reachable from every workspace.
         val commandStrip = android.widget.HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
@@ -325,19 +352,7 @@ class MainActivity : Activity() {
                 labels.forEach { (key, label) ->
                     val chip = AkiStudioUi.navigationChip(this@MainActivity, label, activeWorkspace == key) {
                         activeWorkspace = key
-                        workspacePanels.forEach { (title, view) ->
-                            val match = when (key) {
-                                "All" -> true
-                                "Workspace" -> title == (if (english) "Workspace" else "የሥራ ቦታ")
-                                "Image Lab" -> title == (if (english) "Image Lab" else "የምስል ላብራቶሪ")
-                                "Portrait & ID" -> title == (if (english) "Portrait & ID" else "ፖርትሬትና መታወቂያ")
-                                "Background Lab" -> title == (if (english) "Background Lab" else "የጀርባ ላብራቶሪ")
-                                "Print Studio" -> title == (if (english) "Print Studio" else "የህትመት ስቱዲዮ")
-                                "Design Studio" -> title == (if (english) "Design Studio" else "የዲዛይን ስቱዲዮ")
-                                else -> false
-                            }
-                            view.visibility = if (match) View.VISIBLE else View.GONE
-                        }
+                        applyWorkspaceFilter(key)
                         navigationButtons.forEach { (buttonKey, button) ->
                             AkiStudioUi.setNavigationChipSelected(button, buttonKey == key)
                         }
@@ -350,16 +365,7 @@ class MainActivity : Activity() {
             })
         }
         page.addView(navigation, 1)
-        workspacePanels.forEach { (title, view) ->
-            val visible = activeWorkspace == "All" ||
-                (activeWorkspace == "Workspace" && title == (if (english) "Workspace" else "የሥራ ቦታ")) ||
-                (activeWorkspace == "Image Lab" && title == (if (english) "Image Lab" else "የምስል ላብራቶሪ")) ||
-                (activeWorkspace == "Portrait & ID" && title == (if (english) "Portrait & ID" else "ፖርትሬትና መታወቂያ")) ||
-                (activeWorkspace == "Background Lab" && title == (if (english) "Background Lab" else "የጀርባ ላብራቶሪ")) ||
-                (activeWorkspace == "Print Studio" && title == (if (english) "Print Studio" else "የህትመት ስቱዲዮ")) ||
-                (activeWorkspace == "Design Studio" && title == (if (english) "Design Studio" else "የዲዛይን ስቱዲዮ"))
-            view.visibility = if (visible) View.VISIBLE else View.GONE
-        }
+        applyWorkspaceFilter(activeWorkspace)
 
         page.addView(AkiStudioUi.spacer(this, 4))
         page.addView(AkiStudioUi.badge(this,
