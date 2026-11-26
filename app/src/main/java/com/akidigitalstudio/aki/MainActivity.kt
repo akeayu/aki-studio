@@ -187,7 +187,7 @@ class MainActivity : Activity() {
         try {
             previewBitmap?.recycle()
             originalPreviewBitmap?.recycle()
-            originalPreviewBitmap = decodeBounded(uri, PREVIEW_MAX_EDGE)
+            originalPreviewBitmap = decodeBounded(uri, ORIGINAL_PREVIEW_MAX_EDGE)
             showingOriginal = false
             previewBitmap = buildEditedBitmap(PREVIEW_MAX_EDGE)
             renderPreview()
@@ -858,6 +858,7 @@ class MainActivity : Activity() {
     companion object {
         private const val REQUEST_OPEN = 41
         private const val PREVIEW_MAX_EDGE = 1800
+        private const val ORIGINAL_PREVIEW_MAX_EDGE = 1200
         private const val EXPORT_MAX_EDGE = 4096
         private const val A4_WIDTH_PT = 595
         private const val A4_HEIGHT_PT = 842
