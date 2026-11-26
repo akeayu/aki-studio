@@ -182,6 +182,89 @@ object AkiStudioUi {
         return tile
     }
 
+    /** Generic elevated surface for reusable cards and feature widgets. */
+    fun card(context: Context, content: View, raised: Boolean = false): LinearLayout =
+        LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded(context, if (raised) SURFACE_RAISED else SURFACE, OUTLINE, 18f)
+            setPadding(dp(context, 14), dp(context, 14), dp(context, 14), dp(context, 14))
+            addView(content, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+
+    /** Reusable title/subtitle partial for cards, sheets and tool sections. */
+    fun sectionHeader(context: Context, title: String, subtitle: String? = null): LinearLayout =
+        LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(TextView(context).apply {
+                text = title
+                textSize = 16f
+                typeface = Typeface.create("sans-serif", Typeface.BOLD)
+                setTextColor(TEXT)
+            })
+            if (!subtitle.isNullOrBlank()) addView(TextView(context).apply {
+                text = subtitle
+                textSize = 11f
+                setTextColor(MUTED)
+                setPadding(0, dp(context, 3), 0, 0)
+            })
+        }
+
+    /** Compact state or category chip; minimum height supports touch exploration. */
+    fun chip(context: Context, label: String, accent: Int = MINT): TextView =
+        TextView(context).apply {
+            text = label
+            textSize = 10f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(accent)
+            gravity = Gravity.CENTER
+            background = rounded(context, SURFACE_RAISED, OUTLINE, 20f)
+            setPadding(dp(context, 11), dp(context, 7), dp(context, 11), dp(context, 7))
+            minimumHeight = dp(context, 32)
+        }
+
+    /** Reusable metric/status widget with a strong value and descriptive label. */
+    fun metricWidget(context: Context, value: String, label: String, accent: Int = CYAN): LinearLayout =
+        LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded(context, SURFACE_RAISED, OUTLINE, 16f)
+            setPadding(dp(context, 12), dp(context, 10), dp(context, 12), dp(context, 10))
+            addView(TextView(context).apply {
+                text = value
+                textSize = 20f
+                typeface = Typeface.create("sans-serif", Typeface.BOLD)
+                setTextColor(accent)
+            })
+            addView(TextView(context).apply {
+                text = label
+                textSize = 10f
+                setTextColor(MUTED)
+                maxLines = 2
+            })
+        }
+
+    /** Empty-state partial for future project, asset and history collections. */
+    fun emptyState(context: Context, title: String, detail: String): LinearLayout =
+        LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            background = rounded(context, SURFACE, OUTLINE, 18f)
+            setPadding(dp(context, 20), dp(context, 24), dp(context, 20), dp(context, 24))
+            addView(TextView(context).apply {
+                text = title
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setTextColor(TEXT)
+            })
+            addView(TextView(context).apply {
+                text = detail
+                textSize = 11f
+                gravity = Gravity.CENTER
+                setTextColor(MUTED)
+                setPadding(0, dp(context, 6), 0, 0)
+            })
+        }
+
     fun previewContainer(context: Context) = android.widget.FrameLayout(context).apply {
         background = rounded(context, SURFACE_RAISED, OUTLINE, 22f)
         clipToOutline = true
