@@ -24,6 +24,9 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import java.io.IOException
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import kotlin.math.max
 import kotlin.math.sqrt
 
@@ -54,6 +57,11 @@ class MainActivity : Activity() {
     private var guidesVisible = false
     private var headHeightPercent = 70
     private var eyeLinePercent = 42
+    private val segmentationExecutor: ExecutorService = Executors.newSingleThreadExecutor { task ->
+        Thread(task, "aki-local-segmentation").apply { isDaemon = true }
+    }
+    private var segmentationFuture: Future<*>? = null
+    private var segmentationRequestId = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -565,35 +573,71 @@ class MainActivity : Activity() {
     }
 
     private fun runLocalForegroundEstimate() {
-        if (sourceUri == null || previewBitmap == null) return noPhoto()
-        try {
-            val bundledModel = LiteRtSelfieSegmenter.createOrNull(this)
-            val result = try {
-                LocalForegroundSegmentationEngine(model = bundledModel).segment(previewBitmap!!)
+        val currentPreview = previewBitmap
+        if (sourceUri == null || currentPreview == null || currentPreview.isRecycled) return noPhoto()
+
+        // Invalidate any older request and give the worker its own immutable pixel snapshot.
+        segmentationRequestId += 1
+        val requestId = segmentationRequestId
+        segmentationFuture?.cancel(true)
+        val sourceSnapshot = try {
+            currentPreview.copy(Bitmap.Config.ARGB_8888, false)
+                ?: throw IOException("Could not copy preview for local analysis")
+        } catch (error: Exception) {
+            showStatus(if (english) "Could not prepare local analysis: ${error.message ?: "memory limit"}" else "ለአካባቢያዊ ግምት ፎቶውን ማዘጋጀት አልተቻለም።")
+            return
+        }
+
+        showStatus(if (english) "Estimating the background on this device… You can keep using the app." else "በዚህ መሣሪያ ላይ የጀርባው ክፍል እየተገመተ ነው… መተግበሪያውን መጠቀም ይችላሉ።")
+        segmentationFuture = segmentationExecutor.submit {
+            var result: SegmentationResult? = null
+            var replacement: Bitmap? = null
+            var failure: Exception? = null
+            val bundledModel = LiteRtSelfieSegmenter.createOrNull(applicationContext)
+            try {
+                result = LocalForegroundSegmentationEngine(model = bundledModel).segment(sourceSnapshot)
+                replacement = BackgroundReplacementEngine.replaceSolid(sourceSnapshot, result.foregroundMask, backgroundColor)
+            } catch (error: Exception) {
+                failure = error
             } finally {
                 bundledModel?.close()
+                sourceSnapshot.recycle()
             }
-            autoMaskBitmap?.recycle()
-            autoPreviewBitmap?.recycle()
-            autoMaskBitmap = result.foregroundMask
-            backgroundReplaceEnabled = true
-            maskOverlay.configure(previewBitmap, false)
-            autoPreviewBitmap = BackgroundReplacementEngine.replaceSolid(previewBitmap!!, result.foregroundMask, backgroundColor)
-            renderPreview()
-            val caveat = if (result.method.startsWith("Bundled LiteRT")) {
-                if (english) {
-                    "Local model estimate: " + result.method + ". Its mask scores are not calibrated confidence values. Inspect and correct the mask manually; fine hair and edges may be inaccurate."
-                } else {
-                    "የመሣሪያ ሞዴል ግምት፦ " + result.method + "። የሞዴሉ ውጤት የተረጋገጠ የእምነት መጠን አይደለም። ማስኩን ይመርምሩና በእጅ ያስተካክሉ።"
+
+            runOnUiThread {
+                if (isFinishing || isDestroyed || requestId != segmentationRequestId) {
+                    result?.foregroundMask?.recycle()
+                    replacement?.recycle()
+                    return@runOnUiThread
                 }
-            } else if (english) {
-                "Local estimate: " + result.method + ". Confidence is low (" + (result.confidence * 100).toInt() + "%). Border-colour heuristic only; inspect and correct the mask manually. Similar-coloured hair/clothing may be removed."
-            } else {
-                "በመሣሪያው ላይ የተገመተ፦ " + result.method + "። እምነት ዝቅተኛ ነው። የጠርዝ ቀለም ግምት ብቻ ነው፤ ማስኩን ይመርምሩና በእጅ ያስተካክሉ።"
+                val completed = result
+                val preview = replacement
+                if (failure != null || completed == null || preview == null) {
+                    completed?.foregroundMask?.recycle()
+                    preview?.recycle()
+                    showStatus(if (english) "Local foreground estimate failed: ${failure?.message ?: "image error"}. Your original photo is unchanged." else "የአካባቢያዊ ግምት አልተሳካም። ዋናው ፎቶ አልተቀየረም።")
+                    return@runOnUiThread
+                }
+                autoMaskBitmap?.recycle()
+                autoPreviewBitmap?.recycle()
+                autoMaskBitmap = completed.foregroundMask
+                autoPreviewBitmap = preview
+                backgroundReplaceEnabled = true
+                maskOverlay.configure(previewBitmap, false)
+                renderPreview()
+                val caveat = if (completed.method.startsWith("Bundled LiteRT")) {
+                    if (english) {
+                        "Local model estimate: " + completed.method + ". Mask scores are not calibrated confidence values. Inspect and correct the mask manually; fine hair and edges may be inaccurate."
+                    } else {
+                        "የመሣሪያ ሞዴል ግምት፦ " + completed.method + "። የማስክ ውጤቶች የተረጋገጡ የእምነት መጠኖች አይደሉም። ማስኩን ይመርምሩና በእጅ ያስተካክሉ።"
+                    }
+                } else if (english) {
+                    "Local estimate: " + completed.method + ". Low-confidence border-colour heuristic only; inspect and correct the mask manually. Similar-coloured hair/clothing may be removed."
+                } else {
+                    "በመሣሪያው ላይ የተገመተ፦ " + completed.method + "። ዝቅተኛ እምነት ያለው የጠርዝ ቀለም ግምት ብቻ ነው፤ ማስኩን ይመርምሩና በእጅ ያስተካክሉ።"
+                }
+                showStatus(caveat)
             }
-            showStatus(caveat)
-        } catch (error: Exception) {
-            showStatus(if (english) "Local foreground estimate failed: " + (error.message ?: "image error") else "የፊት ክፍል ግምት አልተሳካም።")
         }
     }
 
@@ -915,6 +959,9 @@ class MainActivity : Activity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     override fun onDestroy() {
+        segmentationRequestId += 1
+        segmentationFuture?.cancel(true)
+        segmentationExecutor.shutdownNow()
         previewBitmap?.recycle()
         previewBitmap = null
         originalPreviewBitmap?.recycle()
