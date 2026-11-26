@@ -5,8 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import org.tensorflow.lite.Interpreter
 import java.io.FileInputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 
 /**
@@ -64,7 +62,13 @@ class LiteRtSelfieSegmenter private constructor(
         val left = (source.width - side) / 2
         val top = (source.height - side) / 2
         val sourceMask = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
-        val scaled = Bitmap.createScaledBitmap(squareMask, side, side, true)
+        val scaled = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+        android.graphics.Canvas(scaled).drawBitmap(
+            squareMask,
+            null,
+            android.graphics.Rect(0, 0, side, side),
+            android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+        )
         squareMask.recycle()
         val canvas = android.graphics.Canvas(sourceMask)
         // Outside the model's center-square field of view, preserve pixels as foreground.
@@ -95,7 +99,14 @@ class LiteRtSelfieSegmenter private constructor(
         val top = (source.height - side) / 2
         val crop = Bitmap.createBitmap(source, left, top, side, side)
         return try {
-            Bitmap.createScaledBitmap(crop, INPUT_SIZE, INPUT_SIZE, true)
+            Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888).also { resized ->
+                android.graphics.Canvas(resized).drawBitmap(
+                    crop,
+                    null,
+                    android.graphics.Rect(0, 0, INPUT_SIZE, INPUT_SIZE),
+                    android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+                )
+            }
         } finally {
             crop.recycle()
         }
