@@ -600,6 +600,13 @@ class MainActivity : Activity() {
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> {
+                        if (autoMaskBitmap != null) {
+                            maskOverlay.setBaseMask(autoMaskBitmap)
+                            autoMaskBitmap?.recycle(); autoMaskBitmap = null
+                            autoPreviewBitmap?.recycle(); autoPreviewBitmap = null
+                        }
+                        backgroundReplaceEnabled = true
+                        preview.setImageBitmap(previewBitmap)
                         maskOverlay.configure(previewBitmap, true, false)
                         showStatus(if (english) "Paint over the subject to protect it. Unpainted pixels will be replaced. Tap this tool again to finish." else "ሰውየውን ለመጠበቅ በላዩ ላይ ይሳሉ። ያልተሳሉ ፒክስሎች ይተካሉ።")
                         backgroundReplaceEnabled = true
