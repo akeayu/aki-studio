@@ -50,4 +50,48 @@ class DesignStudioAdvancedTest {
         assertEquals(0.5f, snapped.layer.x, 0.0001f)
         assertEquals(0.5f, snapped.layer.y, 0.0001f)
     }
+    @Test fun typographyAndCustomPathSurviveDocumentRoundTrip() {
+        val layer = DesignLayer(
+            id = "type-path", name = "Amharic title", kind = "TEXT", text = "ማሌ  Maale",
+            textAlignment = "LEFT", fontFamily = "ETHIOPIC_SYSTEM",
+            lineSpacingMultiplier = 1.45f, textEffect = "OUTLINE",
+            effectColor = 0xFF112233.toInt(), effectWidth = 0.012f
+        )
+        val decoded = DesignLayerDocument.decode(DesignLayerDocument.encode(listOf(layer))).single()
+        assertEquals(layer, decoded)
+    }
+
+    @Test fun customPathDataSurvivesDocumentRoundTrip() {
+        val layer = DesignLayer(
+            id = "path-1", name = "Bezier", kind = "SHAPE", shape = "CUSTOM_PATH",
+            pathData = "M 0.1 0.8 C 0.1 0.2 0.9 0.2 0.9 0.8 L 0.1 0.8 Z"
+        )
+        assertEquals(layer, DesignLayerDocument.decode(DesignLayerDocument.encode(listOf(layer))).single())
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun groupTransformRejectsLockedLayer() {
+        val locked = DesignLayer(id = "locked", name = "Locked", kind = "SHAPE", shape = "RECTANGLE", locked = true)
+        val other = DesignLayer(id = "other", name = "Other", kind = "SHAPE", shape = "ELLIPSE")
+        DesignStudioOperations.transformGroup(listOf(locked, other), setOf("locked", "other"), translateX = 0.1f)
+    }
+
+    @Test fun projectRecipeAndUndoRedoRetainTypographyAndVectorObjects() {
+        val before = listOf(DesignLayer(id = "title", name = "Title", kind = "TEXT", text = "ማሌ / Maale"))
+        val after = listOf(
+            before.single().copy(fontFamily = "ETHIOPIC_SYSTEM", textAlignment = "LEFT", lineSpacingMultiplier = 1.4f, textEffect = "SHADOW"),
+            DesignLayer(id = "curve", name = "Curve", kind = "SHAPE", shape = "CUSTOM_PATH",
+                pathData = "M 0.1 0.8 Q 0.5 0.1 0.9 0.8")
+        )
+        val history = EditHistory()
+        history.reset(mapOf("designLayers" to DesignLayerDocument.encode(before)))
+        history.record(mapOf("designLayers" to DesignLayerDocument.encode(after)))
+        val reopenedRecipe = history.undo()?.get("designLayers")
+        assertEquals(before, DesignLayerDocument.decode(reopenedRecipe))
+        val redoneRecipe = history.redo()?.get("designLayers")
+        assertEquals(after, DesignLayerDocument.decode(redoneRecipe))
+        val persisted = mapOf("designLayers" to DesignLayerDocument.encode(after))
+        assertEquals(after, DesignLayerDocument.decode(persisted["designLayers"]))
+    }
+
 }
