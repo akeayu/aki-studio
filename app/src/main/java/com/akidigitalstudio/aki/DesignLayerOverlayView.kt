@@ -52,6 +52,8 @@ class DesignLayerOverlayView(context: Context) : View(context) {
     private var gestureMode = GestureMode.NONE
     private var downX = 0f
     private var downY = 0f
+    private var downLocalX = 0f
+    private var downLocalY = 0f
     private var startLayer: DesignLayer? = null
     private var startAngle = 0f
     private var startRotation = 0f
@@ -143,6 +145,8 @@ class DesignLayerOverlayView(context: Context) : View(context) {
                 val centerX = rect.centerX()
                 val centerY = rect.centerY()
                 val local = inverseRotate(event.x, event.y, centerX, centerY, hit.rotationDegrees)
+                downLocalX = local.first
+                downLocalY = local.second
                 val rotateY = rect.top - 30f * resources.displayMetrics.density
                 val handle = 18f * resources.displayMetrics.density
                 val corners = arrayOf(rect.left to rect.top, rect.right to rect.top, rect.left to rect.bottom, rect.right to rect.bottom)
@@ -186,9 +190,21 @@ class DesignLayerOverlayView(context: Context) : View(context) {
                     GestureMode.RESIZE -> {
                         val right = resizeCorner == 1 || resizeCorner == 3
                         val bottom = resizeCorner == 2 || resizeCorner == 3
-                        val nw = (base.width + (if (right) dx else -dx) * 2f).coerceIn(0.01f, 1f)
-                        val nh = (base.height + (if (bottom) dy else -dy) * 2f).coerceIn(0.01f, 1f)
-                        base.copy(x = (base.x + dx / 2f).coerceIn(0f, 1f), y = (base.y + dy / 2f).coerceIn(0f, 1f), width = nw, height = nh)
+                        val rect = layerRect(base)
+                        val localNow = inverseRotate(event.x, event.y, rect.centerX(), rect.centerY(), base.rotationDegrees)
+                        val localDx = (localNow.first - downLocalX) / imageBounds.width()
+                        val localDy = (localNow.second - downLocalY) / imageBounds.height()
+                        val nw = (base.width + if (right) localDx else -localDx).coerceIn(0.01f, 1f)
+                        val nh = (base.height + if (bottom) localDy else -localDy).coerceIn(0.01f, 1f)
+                        val radians = Math.toRadians(base.rotationDegrees.toDouble())
+                        val shiftX = (localDx * kotlin.math.cos(radians) - localDy * kotlin.math.sin(radians)) / 2f
+                        val shiftY = (localDx * kotlin.math.sin(radians) + localDy * kotlin.math.cos(radians)) / 2f
+                        base.copy(
+                            x = (base.x + shiftX).coerceIn(0f, 1f),
+                            y = (base.y + shiftY).coerceIn(0f, 1f),
+                            width = nw,
+                            height = nh
+                        )
                     }
                     GestureMode.ROTATE -> {
                         val rect = layerRect(base)
