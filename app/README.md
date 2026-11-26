@@ -32,6 +32,7 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 - Choose crop alignment from a nine-position grid.
 - Resize within maximum width/height pixel bounds while preserving aspect ratio and avoiding upscaling.
 - Apply or remove monochrome effect.
+- Adjust brightness, contrast, saturation and warmth with bounded CPU-only processing; values are stored in the project edit recipe and re-rendered from the original.
 - Reset edits while preserving the source.
 - Save a new JPEG copy (quality 94) or lossless PNG under `Pictures/Aki Studio`; PNG retains alpha when present in the edited bitmap.
 
@@ -70,7 +71,8 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 ## Known limitations
 
 - No actual Gradle build, APK, emulator installation, or physical-device test has been recorded.
-- No layered project format, per-stroke mask history, autosave/recovery journal, camera capture, batch processing, or advanced portrait retouching yet.
+- No layered project format, per-stroke mask history, autosave/recovery journal, camera capture, batch processing, advanced portrait retouching, or interactive crop handles yet.
+- Tonal adjustment controls are global RGB approximations; no calibrated white balance, colour management, curves, selective adjustment, sharpening, or noise reduction yet.
 - Background segmentation currently depends on a low-confidence border-colour heuristic; manual inspection and correction are required.
 - The optional LiteRT model binary is not present and has not been checksum-verified or licensed into this repository.
 - Current LiteRT adapter stretches non-square images to its square tensor input; aspect-ratio-aware preprocessing requires further evaluation.
