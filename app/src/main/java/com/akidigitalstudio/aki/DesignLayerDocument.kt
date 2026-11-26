@@ -130,6 +130,8 @@ object DesignLayerRenderer {
                     textAlign = Paint.Align.CENTER
                 }
                 val lines = layer.text.split("\n").take(8)
+                canvas.save()
+                canvas.clipRect(rect)
                 val lineHeight = paint.textSize * 1.18f
                 val baseline = rect.centerY() - (lines.size - 1) * lineHeight / 2f - (paint.ascent() + paint.descent()) / 2f
                 lines.forEachIndexed { index, line ->
