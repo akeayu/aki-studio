@@ -1304,26 +1304,20 @@ class MainActivity : Activity() {
         var selectedFill = layer.fillColor
         var selectedStroke = layer.strokeColor
         var selectedEffect = layer.effectColor
-        fun colorButton(label: String, initial: Int, onChange: (Int) -> Unit) = Button(this).apply {
+        fun colorButton(label: String, initial: Int) = Button(this).apply {
             text = label
             isAllCaps = false
             setTextColor(initial)
             setBackgroundColor(0xFF243746.toInt())
-            setOnClickListener {
-                LayerColorPicker.show(this@MainActivity, initial, onChange)
-            }
         }
-        val fillPicker = colorButton(if (english) "Choose fill / text color" else "የመሙያ / ጽሑፍ ቀለም ምረጥ", selectedFill) {
-            selectedFill = it
-            fillPickerSafeUpdate(this, it)
+        val fillPicker = colorButton(if (english) "Choose fill / text color" else "የመሙያ / ጽሑፍ ቀለም ምረጥ", selectedFill).apply {
+            setOnClickListener { LayerColorPicker.show(this@MainActivity, selectedFill) { color -> selectedFill = color; fillPickerSafeUpdate(this, color) } }
         }
-        val strokePicker = colorButton(if (english) "Choose stroke color" else "የመስመር ቀለም ምረጥ", selectedStroke) {
-            selectedStroke = it
-            fillPickerSafeUpdate(strokePicker, it)
+        val strokePicker = colorButton(if (english) "Choose stroke color" else "የመስመር ቀለም ምረጥ", selectedStroke).apply {
+            setOnClickListener { LayerColorPicker.show(this@MainActivity, selectedStroke) { color -> selectedStroke = color; fillPickerSafeUpdate(this, color) } }
         }
-        val effectPicker = colorButton(if (english) "Choose text-effect color" else "የጽሑፍ ተፅዕኖ ቀለም ምረጥ", selectedEffect) {
-            selectedEffect = it
-            fillPickerSafeUpdate(effectPicker, it)
+        val effectPicker = colorButton(if (english) "Choose text-effect color" else "የጽሑፍ ተፅዕኖ ቀለም ምረጥ", selectedEffect).apply {
+            setOnClickListener { LayerColorPicker.show(this@MainActivity, selectedEffect) { color -> selectedEffect = color; fillPickerSafeUpdate(this, color) } }
         }
         val fontScale = number("Text size (1–20% of canvas)", (layer.fontScale * 100).toInt().toString())
         val strokeWidth = number("Stroke width (0–8% of canvas)", kotlin.math.round(layer.strokeWidth * 100).toInt().toString(), decimal = true)
