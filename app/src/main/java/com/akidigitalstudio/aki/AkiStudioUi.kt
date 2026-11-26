@@ -165,6 +165,11 @@ object AkiStudioUi {
         return tile
     }
 
+    fun previewContainer(context: Context) = android.widget.FrameLayout(context).apply {
+        background = rounded(context, SURFACE_RAISED, OUTLINE, 22f)
+        clipToOutline = true
+    }
+
     fun statusText(context: Context) = TextView(context).apply {
         textSize = 12f
         setTextColor(TEXT)
