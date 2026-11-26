@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 
 W = H = 128
@@ -119,8 +120,19 @@ def main():
         "cases": cases,
         "warning": "Synthetic fixtures only; this is not Android runtime evidence or real-portrait validation."
     }
+    positive_pass = cases["flat_high_contrast"]["iou"] >= 0.90
+    similar_failure_exposed = cases["similar_subject_background"]["iou"] < 0.10
+    varying_failure_exposed = cases["varying_background"]["iou"] < 0.75
+    report["checks"] = {
+        "high_contrast_positive_control_iou_at_least_0_90": positive_pass,
+        "similar_colour_failure_is_exposed": similar_failure_exposed,
+        "varying_background_failure_is_exposed": varying_failure_exposed
+    }
+    report["suite_result"] = "PASS" if all(report["checks"].values()) else "FAIL"
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))
+    if report["suite_result"] != "PASS":
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
