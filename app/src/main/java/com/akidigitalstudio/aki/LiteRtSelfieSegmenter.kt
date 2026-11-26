@@ -1,0 +1,144 @@
+package com.akidigitalstudio.aki
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Color
+import org.tensorflow.lite.Interpreter
+import java.io.FileInputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.channels.FileChannel
+
+/**
+ * Optional bundled MediaPipe Selfie Segmenter adapter.
+ *
+ * Place the independently verified selfie_segmenter.tflite in app/src/main/assets.
+ * If the asset is absent or incompatible, createOrNull returns null and the existing
+ * deterministic CPU heuristic remains available. No network access is performed.
+ */
+class LiteRtSelfieSegmenter private constructor(
+    private val interpreter: Interpreter
+) : OnDeviceSegmentationModel, AutoCloseable {
+
+    override fun segment(source: Bitmap): SegmentationResult {
+        require(!source.isRecycled && source.width > 0 && source.height > 0)
+
+        val input = Array(1) { Array(INPUT_SIZE) { Array(INPUT_SIZE) { FloatArray(3) } } }
+        val square = centerSquare(source)
+        try {
+            val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
+            square.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
+            var p = 0
+            for (y in 0 until INPUT_SIZE) {
+                for (x in 0 until INPUT_SIZE) {
+                    val color = pixels[p++]
+                    input[0][y][x][0] = Color.red(color) / 255f
+                    input[0][y][x][1] = Color.green(color) / 255f
+                    input[0][y][x][2] = Color.blue(color) / 255f
+                }
+            }
+        } finally {
+            square.recycle()
+        }
+
+        val output = Array(1) {
+            Array(INPUT_SIZE) { Array(INPUT_SIZE) { FloatArray(1) } }
+        }
+        interpreter.run(input, output)
+
+        val maskPixels = IntArray(INPUT_SIZE * INPUT_SIZE)
+        var index = 0
+        for (y in 0 until INPUT_SIZE) {
+            for (x in 0 until INPUT_SIZE) {
+                val confidence = output[0][y][x][0].coerceIn(0f, 1f)
+                val gray = (confidence * 255f).toInt()
+                maskPixels[index++] = Color.argb(255, gray, gray, gray)
+            }
+        }
+
+        val squareMask = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888)
+        squareMask.setPixels(maskPixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
+
+        // Map the square model output back to the center-square source region.
+        val side = minOf(source.width, source.height)
+        val left = (source.width - side) / 2
+        val top = (source.height - side) / 2
+        val sourceMask = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+        val scaled = Bitmap.createScaledBitmap(squareMask, side, side, true)
+        squareMask.recycle()
+        val canvas = android.graphics.Canvas(sourceMask)
+        canvas.drawColor(Color.BLACK)
+        canvas.drawBitmap(scaled, left.toFloat(), top.toFloat(), null)
+        scaled.recycle()
+
+        return SegmentationResult(
+            foregroundMask = sourceMask,
+            method = "Bundled LiteRT Selfie Segmenter (CPU)",
+            confidence = 0.5f,
+            limitations = listOf(
+                "Model confidence values are not calibrated probabilities of correctness.",
+                "The model was designed for prominent-person segmentation, not official-photo compliance.",
+                "Fine hair, translucent edges, multiple people and unusual backgrounds may be inaccurate.",
+                "Center-square inference excludes image regions outside the central square; inspect and correct manually."
+            )
+        )
+    }
+
+    override fun close() {
+        interpreter.close()
+    }
+
+    private fun centerSquare(source: Bitmap): Bitmap {
+        val side = minOf(source.width, source.height)
+        val left = (source.width - side) / 2
+        val top = (source.height - side) / 2
+        val crop = Bitmap.createBitmap(source, left, top, side, side)
+        return try {
+            Bitmap.createScaledBitmap(crop, INPUT_SIZE, INPUT_SIZE, true)
+        } finally {
+            crop.recycle()
+        }
+    }
+
+    companion object {
+        const val ASSET_NAME = "selfie_segmenter.tflite"
+        private const val INPUT_SIZE = 256
+
+        /** Returns null when the verified model asset is not packaged. */
+        fun createOrNull(context: Context): LiteRtSelfieSegmenter? {
+            val descriptor = try {
+                context.assets.openFd(ASSET_NAME)
+            } catch (_: Exception) {
+                return null
+            }
+            return try {
+                val model = FileInputStream(descriptor.fileDescriptor).channel.map(
+                    FileChannel.MapMode.READ_ONLY,
+                    descriptor.startOffset,
+                    descriptor.declaredLength
+                )
+                val options = Interpreter.Options().apply { setNumThreads(2) }
+                val interpreter = Interpreter(model, options)
+                validateTensorShapes(interpreter)
+                LiteRtSelfieSegmenter(interpreter)
+            } catch (_: Exception) {
+                null
+            } finally {
+                descriptor.close()
+            }
+        }
+
+        private fun validateTensorShapes(interpreter: Interpreter) {
+            val inputShape = interpreter.getInputTensor(0).shape()
+            val outputShape = interpreter.getOutputTensor(0).shape()
+            require(inputShape.contentEquals(intArrayOf(1, INPUT_SIZE, INPUT_SIZE, 3))) {
+                "Unexpected model input tensor shape"
+            }
+            require(outputShape.contentEquals(intArrayOf(1, INPUT_SIZE, INPUT_SIZE, 1))) {
+                "Unexpected model output tensor shape"
+            }
+            require(interpreter.getInputTensor(0).dataType() == org.tensorflow.lite.DataType.FLOAT32)
+            require(interpreter.getOutputTensor(0).dataType() == org.tensorflow.lite.DataType.FLOAT32)
+        }
+    }
+}
