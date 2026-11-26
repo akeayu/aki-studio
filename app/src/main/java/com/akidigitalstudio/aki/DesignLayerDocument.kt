@@ -24,6 +24,7 @@ data class DesignLayer(
     val fontScale: Float = 0.055f,
     val bold: Boolean = false,
     val italic: Boolean = false,
+    val rotationDegrees: Float = 0f,
     val visible: Boolean = true,
     val locked: Boolean = false,
     val opacity: Float = 1f
@@ -33,9 +34,9 @@ data class DesignLayer(
         require(kind in setOf("TEXT", "SHAPE"))
         require(shape in setOf("", "RECTANGLE", "ELLIPSE", "LINE"))
         require(text.length <= 500)
-        require(listOf(x, y, width, height, strokeWidth, fontScale, opacity).all { it.isFinite() })
+        require(listOf(x, y, width, height, strokeWidth, fontScale, rotationDegrees, opacity).all { it.isFinite() })
         require(x in 0f..1f && y in 0f..1f && width in 0.01f..1f && height in 0.01f..1f)
-        require(strokeWidth in 0f..0.08f && fontScale in 0.01f..0.2f && opacity in 0f..1f)
+        require(strokeWidth in 0f..0.08f && fontScale in 0.01f..0.2f && rotationDegrees in -180f..180f && opacity in 0f..1f)
         require((kind == "TEXT" && text.isNotBlank()) || (kind == "SHAPE" && shape.isNotBlank()))
         return this
     }
@@ -43,7 +44,7 @@ data class DesignLayer(
 
 object DesignLayerDocument {
     const val MAX_LAYERS = 30
-    const val SCHEMA_VERSION = 1
+    const val SCHEMA_VERSION = 2
 
     /** Compact, bounded, dependency-free serialization for Android and local JVM tests. */
     fun encode(layers: List<DesignLayer>): String {
@@ -62,6 +63,7 @@ object DesignLayerDocument {
                 out.writeInt(l.fillColor); out.writeInt(l.strokeColor)
                 out.writeFloat(l.strokeWidth); out.writeFloat(l.fontScale)
                 out.writeBoolean(l.bold); out.writeBoolean(l.italic)
+                out.writeFloat(l.rotationDegrees)
                 out.writeBoolean(l.visible); out.writeBoolean(l.locked)
                 out.writeFloat(l.opacity)
             }
@@ -75,7 +77,8 @@ object DesignLayerDocument {
         val bytes = try { java.util.Base64.getDecoder().decode(serialized) }
             catch (_: IllegalArgumentException) { throw IllegalArgumentException("Invalid design layer encoding") }
         val input = java.io.DataInputStream(bytes.inputStream())
-        require(input.readInt() == SCHEMA_VERSION) { "Unsupported design layer schema" }
+        val schema = input.readInt()
+        require(schema in 1..SCHEMA_VERSION) { "Unsupported design layer schema" }
         val count = input.readInt()
         require(count in 0..MAX_LAYERS) { "Invalid design layer count" }
         val result = mutableListOf<DesignLayer>()
@@ -88,6 +91,7 @@ object DesignLayerDocument {
                 fillColor = input.readInt(), strokeColor = input.readInt(),
                 strokeWidth = input.readFloat(), fontScale = input.readFloat(),
                 bold = input.readBoolean(), italic = input.readBoolean(),
+                rotationDegrees = if (schema >= 2) input.readFloat() else 0f,
                 visible = input.readBoolean(), locked = input.readBoolean(),
                 opacity = input.readFloat()
             ).validated()
@@ -113,6 +117,8 @@ object DesignLayerRenderer {
             val top = (layer.y - layer.height / 2f) * source.height
             val rect = RectF(left, top, left + layer.width * source.width, top + layer.height * source.height)
             val alpha = (layer.opacity * 255f).toInt().coerceIn(0, 255)
+            canvas.save()
+            canvas.rotate(layer.rotationDegrees, rect.centerX(), rect.centerY())
             if (layer.kind == "TEXT") {
                 val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = layer.fillColor
@@ -148,6 +154,7 @@ object DesignLayerRenderer {
                     "LINE" -> canvas.drawLine(rect.left, rect.centerY(), rect.right, rect.centerY(), stroke)
                 }
             }
+            canvas.restore()
         }
         return output
     }
