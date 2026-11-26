@@ -22,6 +22,7 @@ This directory contains controlled product, architecture, governance, and verifi
 - `implementation/AKIDS-A3-PROJECTS-001-v0.1.0.md` — private offline editable projects, original-image preservation, edit recipes, masks, and project management operations.
 - `implementation/AKIDS-A3-ADJUST-001-v0.1.0.md` — local CPU-only brightness, contrast, saturation, and warmth controls with persisted non-destructive edit settings.
 - `implementation/AKIDS-A3-CROP-NAMING-001-v0.1.0.md` — interactive crop selection, project crop persistence, user-supplied export names, and reusable local filename patterns.
+- `implementation/AKIDS-A3-HISTORY-001-v0.1.0.md` — bounded in-session undo/redo for non-destructive edit recipes; bitmap-mask stroke history remains separate.
 
 ## Controlled baseline records
 
