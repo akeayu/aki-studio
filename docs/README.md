@@ -13,6 +13,7 @@ This directory contains controlled product, architecture, governance, and verifi
 - `security/` — threat models, data handling, dependency and supply-chain assessments.
 - `verification/` — test strategy, acceptance criteria, and evidence.
 - `implementation/` — stage-gated implementation records and scope boundaries.
+- `implementation/AKIDS-A3-SEG-MODEL-REVIEW-001-v0.1.0.md` — offline portrait-segmentation model candidate assessment; no model adopted.
 
 ## Controlled baseline records
 
