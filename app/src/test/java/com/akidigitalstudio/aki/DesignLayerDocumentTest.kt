@@ -13,6 +13,31 @@ class DesignLayerDocumentTest {
         assertEquals(input, decoded)
     }
 
+    @Test fun rotationIsPreservedBySchemaV2RoundTrip() {
+        val layer = DesignLayer(name = "Rotated", kind = "SHAPE", shape = "RECTANGLE", rotationDegrees = 37.5f)
+        val restored = DesignLayerDocument.decode(DesignLayerDocument.encode(listOf(layer))).single()
+        assertEquals(37.5f, restored.rotationDegrees, 0.001f)
+    }
+
+    @Test fun schemaV1PayloadRemainsReadableWithZeroRotation() {
+        val bytes = java.io.ByteArrayOutputStream()
+        java.io.DataOutputStream(bytes).use { out ->
+            out.writeInt(1); out.writeInt(1)
+            out.writeUTF("legacy-id"); out.writeUTF("Legacy"); out.writeUTF("SHAPE")
+            out.writeUTF(""); out.writeUTF("RECTANGLE")
+            out.writeFloat(0.5f); out.writeFloat(0.5f)
+            out.writeFloat(0.55f); out.writeFloat(0.18f)
+            out.writeInt(0xFFFFFFFF.toInt()); out.writeInt(0xFF75E0C0.toInt())
+            out.writeFloat(0.006f); out.writeFloat(0.055f)
+            out.writeBoolean(false); out.writeBoolean(false)
+            out.writeBoolean(true); out.writeBoolean(false); out.writeFloat(1f)
+        }
+        val encoded = java.util.Base64.getEncoder().encodeToString(bytes.toByteArray())
+        val restored = DesignLayerDocument.decode(encoded).single()
+        assertEquals("Legacy", restored.name)
+        assertEquals(0f, restored.rotationDegrees, 0f)
+    }
+
     @Test fun emptyDocumentIsSupportedForLegacyProjects() {
         assertTrue(DesignLayerDocument.decode(null).isEmpty())
         assertTrue(DesignLayerDocument.decode("").isEmpty())
