@@ -8,7 +8,7 @@ class ExportFileNamingTest {
     @Test
     fun expandsUserPatternTokensDeterministically() {
         assertEquals(
-            "Studio_photo_20261126_081530",
+            "Studio_photo_20261126_053530",
             ExportFileNaming.expand("Studio_{type}_{date}", "photo", 1795671330000L)
         )
     }
