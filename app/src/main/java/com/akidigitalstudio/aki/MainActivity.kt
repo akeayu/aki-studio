@@ -37,6 +37,9 @@ class MainActivity : Activity() {
     private lateinit var preview: ImageView
     private lateinit var guideOverlay: GuideOverlayView
     private lateinit var maskOverlay: ManualMaskView
+    private lateinit var designOverlay: DesignLayerOverlayView
+    private var designTransformMode = false
+    private var selectedDesignLayerId: String? = null
     private var backgroundReplaceEnabled = false
     private var autoMaskBitmap: Bitmap? = null
     private var autoPreviewBitmap: Bitmap? = null
@@ -99,10 +102,22 @@ class MainActivity : Activity() {
         }
         guideOverlay = GuideOverlayView(this)
         maskOverlay = ManualMaskView(this)
+        designOverlay = DesignLayerOverlayView(this).apply {
+            onCommit = { updated ->
+                val index = designLayers.indexOfFirst { it.id == updated.id }
+                if (index >= 0) {
+                    designLayers[index] = updated
+                    selectedDesignLayerId = updated.id
+                    refreshPreview()
+                    showStatus(if (english) "Layer transform saved." else "የንብርብር ለውጥ ተቀምጧል።")
+                }
+            }
+        }
         val previewFrame = AkiStudioUi.previewContainer(this).apply {
             addView(preview, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             addView(guideOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             addView(maskOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            addView(designOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
         page.addView(previewFrame, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, dp(300)
@@ -180,7 +195,8 @@ class MainActivity : Activity() {
             listOf(
                 action("T", "Add typography", "ጽሑፍ ጨምር", "Headlines and captions", "ርዕስና መግለጫ") { addTextLayer() },
                 action("◇", "Add vector shape", "ቬክተር ቅርጽ ጨምር", "Rectangle, ellipse, line", "አራት ማዕዘን፣ ክብ፣ መስመር") { addShapeLayer() },
-                action("▤", "Manage layers", "ንብርብሮችን አስተዳድር", "Order, visibility, lock", "ቅደም ተከተል፣ ታይነት፣ ቁልፍ") { manageDesignLayers() }
+                action("▤", "Manage layers", "ንብርብሮችን አስተዳድር", "Order, visibility, lock", "ቅደም ተከተል፣ ታይነት፣ ቁልፍ") { manageDesignLayers() },
+                action("✥", "Transform layers", "ንብርብሮችን አንቀሳቅስ", "Drag, resize and rotate", "ጎትት፣ መጠን ቀይር፣ አዙር") { toggleDesignTransformMode() }
             )
         )
 
@@ -732,12 +748,15 @@ class MainActivity : Activity() {
                     showStatus(if (english) "Text must contain 1–500 characters." else "ጽሑፉ 1–500 ፊደል መሆን አለበት።")
                     return@setOnClickListener
                 }
-                designLayers += DesignLayer(
+                val created = DesignLayer(
                     name = "Text ${designLayers.count { it.kind == "TEXT" } + 1}",
                     kind = "TEXT", text = text, bold = bold.isChecked, italic = italic.isChecked
                 )
+                designLayers += created
+                selectedDesignLayerId = created.id
                 dialog.dismiss()
                 refreshPreview()
+                setDesignTransformMode(true)
                 showStatus(if (english) "Editable text layer added." else "ሊስተካከል የሚችል የጽሑፍ ንብርብር ተጨምሯል።")
             }
         }
@@ -755,13 +774,16 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle(if (english) "Choose vector primitive" else "የቬክተር ቅርጽ ይምረጡ")
             .setItems(shapes) { _, which ->
-                designLayers += DesignLayer(
+                val created = DesignLayer(
                     name = "${shapes[which]} ${designLayers.count { it.kind == "SHAPE" } + 1}",
                     kind = "SHAPE", shape = types[which],
                     fillColor = if (types[which] == "LINE") android.graphics.Color.TRANSPARENT else 0x5575E0C0,
                     strokeColor = AkiStudioUi.MINT
                 )
+                designLayers += created
+                selectedDesignLayerId = created.id
                 refreshPreview()
+                setDesignTransformMode(true)
                 showStatus(if (english) "Editable vector layer added." else "ሊስተካከል የሚችል ቬክተር ተጨምሯል።")
             }
             .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
@@ -780,7 +802,9 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle(if (english) "Layers — top to bottom" else "ንብርብሮች — ከላይ ወደ ታች")
             .setItems(labels) { _, reverseIndex ->
-                editDesignLayer(designLayers.lastIndex - reverseIndex)
+                val index = designLayers.lastIndex - reverseIndex
+                selectedDesignLayerId = designLayers[index].id
+                editDesignLayer(index)
             }
             .setNegativeButton(if (english) "Close" else "ዝጋ", null)
             .show()
@@ -1646,6 +1670,34 @@ class MainActivity : Activity() {
         preview.setImageBitmap(if (showingOriginal) originalPreviewBitmap else (autoPreviewBitmap ?: previewBitmap))
         guideOverlay.configure(if (showingOriginal) originalPreviewBitmap else previewBitmap, headHeightPercent, eyeLinePercent, guidesVisible && !showingOriginal)
         if (::maskOverlay.isInitialized) maskOverlay.configure(previewBitmap, false)
+        if (::designOverlay.isInitialized) {
+            val bitmap = if (showingOriginal) null else (autoPreviewBitmap ?: previewBitmap)
+            designOverlay.configure(bitmap?.width ?: 0, bitmap?.height ?: 0, designLayers, selectedDesignLayerId)
+            designOverlay.visibility = if (designTransformMode && !showingOriginal && designLayers.isNotEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+        }
+    }
+
+    private fun toggleDesignTransformMode() {
+        if (sourceUri == null) return noPhoto()
+        if (designLayers.isEmpty()) {
+            showStatus(if (english) "Add a text or vector layer before transforming." else "ከማንቀሳቀስዎ በፊት ጽሑፍ ወይም ቬክተር ይጨምሩ።")
+            return
+        }
+        setDesignTransformMode(!designTransformMode)
+    }
+
+    private fun setDesignTransformMode(enabled: Boolean) {
+        designTransformMode = enabled
+        if (::designOverlay.isInitialized) {
+            val bitmap = if (showingOriginal) null else (autoPreviewBitmap ?: previewBitmap)
+            designOverlay.configure(bitmap?.width ?: 0, bitmap?.height ?: 0, designLayers, selectedDesignLayerId)
+            designOverlay.visibility = if (enabled && !showingOriginal && designLayers.isNotEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+        }
+        showStatus(if (enabled) {
+            if (english) "Select a layer. Drag inside to move; corner handles resize; top handle rotates. Center snapping is enabled." else "ንብርብር ይምረጡ። ውስጡን ጎትተው ያንቀሳቅሱ፤ ማዕዘኖቹ መጠን ይቀይራሉ፤ የላይኛው እጀታ ያዞራል።"
+        } else {
+            if (english) "Layer transform mode closed." else "የንብርብር ማንቀሳቀሻ ተዘግቷል።"
+        })
     }
 
     private fun noPhoto() {
