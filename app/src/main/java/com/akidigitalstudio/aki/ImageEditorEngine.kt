@@ -47,6 +47,21 @@ object ImageEditorEngine {
         return Bitmap.createBitmap(source, left, top, cropWidth, cropHeight)
     }
 
+    fun resizeWithin(source: Bitmap, maxWidth: Int, maxHeight: Int): Bitmap {
+        require(maxWidth > 0 && maxHeight > 0) { "Maximum dimensions must be positive" }
+        require(maxWidth.toLong() * maxHeight.toLong() <= 4_000_000L) {
+            "Maximum dimensions exceed the safe pixel limit"
+        }
+        val scale = minOf(
+            1.0,
+            maxWidth.toDouble() / source.width.toDouble(),
+            maxHeight.toDouble() / source.height.toDouble()
+        )
+        val width = (source.width * scale).toInt().coerceAtLeast(1)
+        val height = (source.height * scale).toInt().coerceAtLeast(1)
+        return resize(source, width, height)
+    }
+
     fun resize(source: Bitmap, width: Int, height: Int): Bitmap {
         require(width > 0 && height > 0) { "Target dimensions must be positive" }
         require(width.toLong() * height.toLong() <= 4_000_000L) { "Target image exceeds the safe pixel limit" }
