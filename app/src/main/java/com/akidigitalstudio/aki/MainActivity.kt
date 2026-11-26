@@ -80,119 +80,111 @@ class MainActivity : Activity() {
     }
 
     private fun buildScreen() {
-        val page = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(20), dp(18), dp(20))
-            setBackgroundColor(0xFFF5F4EF.toInt())
-        }
-        val heading = TextView(this).apply {
-            text = "Aki Studio"
-            textSize = 28f
-            setTextColor(0xFF17382B.toInt())
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val tagline = TextView(this).apply {
-            text = "A New Way to Create"
-            textSize = 14f
-            setTextColor(0xFF52645A.toInt())
-        }
+        window.statusBarColor = AkiStudioUi.INK
+        window.navigationBarColor = AkiStudioUi.INK
+        val page = AkiStudioUi.page(this)
+        page.addView(AkiStudioUi.header(this, english) {
+            english = !english
+            buildScreen()
+            renderPreview()
+            showStatus(if (english) "Ready. Your photos stay on this device." else "ዝግጁ ነው። ፎቶዎችዎ በዚህ መሣሪያ ላይ ብቻ ይቆያሉ።")
+        })
+
         preview = ImageView(this).apply {
             adjustViewBounds = true
             scaleType = ImageView.ScaleType.FIT_CENTER
-            setBackgroundColor(0xFFE3E6E0.toInt())
-            contentDescription = "Local photo preview"
+            setBackgroundColor(0xFF101722.toInt())
+            contentDescription = if (english) "Local photo preview" else "የፎቶ ቅድመ እይታ"
         }
-        status = TextView(this).apply {
-            textSize = 13f
-            setTextColor(0xFF39483F.toInt())
-            setPadding(0, dp(10), 0, dp(10))
-        }
-        page.addView(heading)
-        page.addView(tagline)
         guideOverlay = GuideOverlayView(this)
-        val previewFrame = FrameLayout(this).apply {
+        maskOverlay = ManualMaskView(this)
+        val previewFrame = AkiStudioUi.previewContainer(this).apply {
             addView(preview, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             addView(guideOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-            maskOverlay = ManualMaskView(this)
             addView(maskOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
         page.addView(previewFrame, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, dp(320)
-        ).apply { topMargin = dp(18); bottomMargin = dp(10) })
-        page.addView(status)
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(300)
+        ).apply { topMargin = dp(5); bottomMargin = dp(10) })
 
-        val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row1.addView(actionButton(if (english) "Open photo" else "ፎቶ ክፈት") { choosePhoto() }, weighted())
-        row1.addView(actionButton(if (english) "Rotate" else "አዙር") { rotatePhoto() }, weighted())
-        page.addView(row1)
+        status = AkiStudioUi.statusText(this)
+        status.text = if (english) "READY  ·  Local processing enabled" else "ዝግጁ  ·  በመሣሪያው ላይ የሚሠራ"
+        page.addView(status, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = dp(14)
+        })
 
-        val row2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row2.addView(actionButton(if (english) "Crop" else "ቁረጥ") { chooseCrop() }, weighted())
-        row2.addView(actionButton(if (english) "Resize" else "መጠን ቀይር") { chooseResize() }, weighted())
-        row2.addView(actionButton(if (english) "ID / Passport" else "መታወቂያ / ፓስፖርት") { chooseIdPreset() }, weighted())
-        page.addView(row2)
+        fun action(symbol: String, en: String, am: String, subEn: String, subAm: String, click: () -> Unit) =
+            AkiStudioUi.Action(symbol, if (english) en else am, if (english) subEn else subAm, click)
 
-        val row3 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row3.addView(actionButton(if (english) "B&W" else "ጥቁር ነጭ") { toggleMonochrome() }, weighted())
-        row3.addView(actionButton(if (english) "Position" else "ቦታ") { chooseCropPosition() }, weighted())
-        row3.addView(actionButton(if (english) "Reset" else "መልስ") { resetEdits() }, weighted())
-        row3.addView(actionButton(if (english) "Save copy" else "ቅጂ አስቀምጥ") { saveCopy() }, weighted())
-        page.addView(row3)
-        val row4 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row4.addView(actionButton(if (english) "Photo guides" else "የፎቶ መመሪያ") { configurePhotoGuides() }, weighted())
-        row4.addView(actionButton(if (english) "Print sheet PDF" else "የህትመት PDF") { configurePrintSheet() }, weighted())
-        page.addView(row4)
-
-        val row5 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row5.addView(actionButton(if (english) "Photo standard" else "የፎቶ መስፈርት") { configurePhotoSpecification() }, weighted())
-        page.addView(row5)
-
-        val row6 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row6.addView(actionButton(if (english) "Photo quality" else "የፎቶ ጥራት") { assessPhotoQuality() }, weighted())
-        page.addView(row6)
-
-        val row7 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row7.addView(actionButton(if (english) "Manual background mask" else "በእጅ የጀርባ ማስክ") { configureManualMask() }, weighted())
-        page.addView(row7)
-
-        val row8 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row8.addView(actionButton(if (english) "Mask controls" else "የማስክ መቆጣጠሪያ") { configureMaskControls() }, weighted())
-        row8.addView(actionButton(if (english) "Before / After" else "ከዚያ በፊት / በኋላ") { toggleBeforeAfter() }, weighted())
-        page.addView(row8)
-
-        val row9 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row9.addView(actionButton(if (english) "Quick local background estimate" else "የጀርባ ቦታን በመሣሪያው ገምት") { runLocalForegroundEstimate() }, weighted())
-        page.addView(row9)
-
-        val row10 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row10.addView(actionButton(if (english) "Save project" else "ፕሮጀክት አስቀምጥ") { saveLocalProject() }, weighted())
-        row10.addView(actionButton(if (english) "Open project" else "ፕሮጀክት ክፈት") { openLocalProject() }, weighted())
-        page.addView(row10)
-
-        val row11 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row11.addView(actionButton(if (english) "Image adjustments" else "የምስል ማስተካከያ") { configureImageAdjustments() }, weighted())
-        page.addView(row11)
-
-        val row12 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row12.addView(actionButton(if (english) "Fine crop" else "ትክክለኛ ቁረጥ") { openInteractiveCrop() }, weighted())
-        page.addView(row12)
-
-        val row13 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row13.addView(actionButton(if (english) "Undo edit" else "ለውጡን መልስ") { undoEdit() }, weighted())
-        row13.addView(actionButton(if (english) "Redo edit" else "ለውጡን ድገም") { redoEdit() }, weighted())
-        page.addView(row13)
-
-        val language = Button(this).apply {
-            text = if (english) "አማርኛ" else "English"
-            setOnClickListener {
-                english = !english
-                buildScreen()
-                renderPreview()
-                showStatus(if (english) "Ready. Your photos stay on this device." else "ዝግጁ ነው። ፎቶዎችዎ በዚህ መሣሪያ ላይ ብቻ ይቆያሉ።")
-            }
+        fun panel(titleEn: String, titleAm: String, subEn: String, subAm: String, actions: List<AkiStudioUi.Action>) {
+            page.addView(AkiStudioUi.panel(
+                this,
+                if (english) titleEn else titleAm,
+                if (english) subEn else subAm,
+                actions,
+                english
+            ), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(12)
+            })
         }
-        page.addView(language)
-        setContentView(ScrollView(this).apply { addView(page) })
+
+        panel("Workspace", "የሥራ ቦታ", "Your projects and creative session", "ፕሮጀክቶችዎና የፈጠራ ሥራዎ",
+            listOf(
+                action("＋", "Open photo", "ፎቶ ክፈት", "Import locally", "በመሣሪያው ላይ ክፈት") { choosePhoto() },
+                action("▣", "Save project", "ፕሮጀክት አስቀምጥ", "Keep edits editable", "ለውጦችን ጠብቅ") { saveLocalProject() },
+                action("◫", "Open project", "ፕሮጀክት ክፈት", "Resume your work", "ሥራዎን ቀጥል") { openLocalProject() },
+                action("⇧", "Save export", "ውጤት አስቀምጥ", "JPEG or PNG copy", "JPEG ወይም PNG") { saveCopy() },
+                action("↶", "Undo", "መልስ", "Up to 100 steps", "እስከ 100 ደረጃ") { undoEdit() },
+                action("↷", "Redo", "ድገም", "Restore next edit", "ቀጣዩን ለውጥ መልስ") { redoEdit() }
+            )
+        )
+
+        panel("Image Lab", "የምስል ላብራቶሪ", "Precision editing and tonal control", "ትክክለኛ አርትዖትና የቀለም ቁጥጥር",
+            listOf(
+                action("⟳", "Rotate", "አዙር", "90° rotation", "90° ማዞር") { rotatePhoto() },
+                action("⌗", "Crop", "ቁረጥ", "Aspect presets", "የተወሰነ ምጥጥን") { chooseCrop() },
+                action("▱", "Fine crop", "ትክክለኛ ቁረጥ", "Drag and refine", "ጎትተው ያስተካክሉ") { openInteractiveCrop() },
+                action("↔", "Resize", "መጠን ቀይር", "Pixel dimensions", "የፒክሰል መጠን") { chooseResize() },
+                action("◐", "Adjustments", "ማስተካከያ", "Light and colour", "ብርሃንና ቀለም") { configureImageAdjustments() },
+                action("◑", "Monochrome", "ጥቁር ነጭ", "Black and white", "ጥቁርና ነጭ") { toggleMonochrome() },
+                action("◉", "Before / After", "ከዚያ በፊት / በኋላ", "Compare changes", "ለውጦችን አወዳድር") { toggleBeforeAfter() },
+                action("⟲", "Reset edits", "ለውጦችን መልስ", "Restore original recipe", "ወደ መጀመሪያው ተመለስ") { resetEdits() }
+            )
+        )
+
+        panel("Portrait & ID", "ፖርትሬትና መታወቂያ", "Guided portrait preparation", "የተመራ የፖርትሬት ዝግጅት",
+            listOf(
+                action("▣", "ID / Passport", "መታወቂያ / ፓስፖርት", "Dimension presets", "የመጠን አማራጮች") { chooseIdPreset() },
+                action("⌖", "Photo guides", "የፎቶ መመሪያ", "Head and eye-line", "የጭንቅላትና የዓይን መስመር") { configurePhotoGuides() },
+                action("✓", "Photo standard", "የፎቶ መስፈርት", "Authority-aware rules", "የሥልጣን ምንጭ የሚጠይቅ") { configurePhotoSpecification() },
+                action("⌁", "Photo quality", "የፎቶ ጥራት", "Local quality signals", "በመሣሪያው ላይ ጥራት ግምገማ") { assessPhotoQuality() }
+            )
+        )
+
+        panel("Background Lab", "የጀርባ ላብራቶሪ", "Local masking with manual control", "በመሣሪያው ላይ ማስክና በእጅ ቁጥጥር",
+            listOf(
+                action("✧", "Quick estimate", "ፈጣን ግምት", "CPU border estimate", "በCPU የጀርባ ግምት") { runLocalForegroundEstimate() },
+                action("✎", "Manual mask", "በእጅ ማስክ", "Paint and erase", "ቀለም ቀባና አጥፋ") { configureManualMask() },
+                action("◌", "Mask controls", "የማስክ ቁጥጥር", "Brush and edge softness", "ብሩሽና የጠርዝ ልስላሴ") { configureMaskControls() }
+            )
+        )
+
+        panel("Print Studio", "የህትመት ስቱዲዮ", "Arrange repeat-ready photo sheets", "ለህትመት የተዘጋጁ ፎቶዎችን አደራጅ",
+            listOf(
+                action("▤", "A4 print sheet", "የA4 ህትመት ወረቀት", "PDF with cut guides", "PDF ከመቁረጫ መመሪያ ጋር") { configurePrintSheet() }
+            )
+        )
+
+        page.addView(AkiStudioUi.spacer(this, 4))
+        page.addView(AkiStudioUi.badge(this,
+            if (english) "LOCAL-FIRST  ·  ORIGINALS PRESERVED  ·  NO ACCOUNT" else "በመሣሪያው ላይ ብቻ  · ዋናው ፎቶ ይጠበቃል · መለያ አያስፈልግም",
+            AkiStudioUi.MINT
+        ))
+        setContentView(ScrollView(this).apply {
+            isFillViewport = true
+            setBackgroundColor(AkiStudioUi.INK)
+            addView(page)
+        })
     }
 
     private fun actionButton(label: String, action: () -> Unit) = Button(this).apply {
