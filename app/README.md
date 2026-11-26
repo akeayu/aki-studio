@@ -20,6 +20,7 @@ Open the repository root in a current Android Studio installation, allow the loc
 - Choose a photo through Android's system document picker.
 - Rotate by 90 degrees.
 - Center-crop to original, square, 3:4, 4:5, 5:4, or 16:9 proportions.
+- Resize within maximum width/height pixel bounds while preserving the current aspect ratio; no upscaling.
 - Apply ID/passport crop presets: 35 × 45 mm (413 × 531 px) and 2 × 2 inch (600 × 600 px), with pixel dimensions calculated for 300 DPI.
 - Apply or remove a monochrome effect.
 - Reset edits.
