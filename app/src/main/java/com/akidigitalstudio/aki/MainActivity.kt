@@ -580,7 +580,13 @@ class MainActivity : Activity() {
             maskOverlay.configure(previewBitmap, false)
             autoPreviewBitmap = BackgroundReplacementEngine.replaceSolid(previewBitmap!!, result.foregroundMask, backgroundColor)
             renderPreview()
-            val caveat = if (english) {
+            val caveat = if (result.method.startsWith("Bundled LiteRT")) {
+                if (english) {
+                    "Local model estimate: " + result.method + ". Its mask scores are not calibrated confidence values. Inspect and correct the mask manually; fine hair and edges may be inaccurate."
+                } else {
+                    "የመሣሪያ ሞዴል ግምት፦ " + result.method + "። የሞዴሉ ውጤት የተረጋገጠ የእምነት መጠን አይደለም። ማስኩን ይመርምሩና በእጅ ያስተካክሉ።"
+                }
+            } else if (english) {
                 "Local estimate: " + result.method + ". Confidence is low (" + (result.confidence * 100).toInt() + "%). Border-colour heuristic only; inspect and correct the mask manually. Similar-coloured hair/clothing may be removed."
             } else {
                 "በመሣሪያው ላይ የተገመተ፦ " + result.method + "። እምነት ዝቅተኛ ነው። የጠርዝ ቀለም ግምት ብቻ ነው፤ ማስኩን ይመርምሩና በእጅ ያስተካክሉ።"
