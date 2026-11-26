@@ -166,44 +166,51 @@ object DesignLayerRenderer {
                     "ETHIOPIC_SYSTEM" -> Typeface.create("sans-serif", style)
                     else -> Typeface.create(Typeface.SANS_SERIF, style)
                 }
-                val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                val textPaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = layer.fillColor
-                    this.alpha = (alpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
+                    alpha = (alpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
                     textSize = layer.fontScale * shortEdge
                     this.typeface = typeface
-                    textAlign = when (layer.textAlignment) {
-                        "LEFT" -> Paint.Align.LEFT
-                        "RIGHT" -> Paint.Align.RIGHT
-                        else -> Paint.Align.CENTER
-                    }
+                    textAlign = Paint.Align.LEFT
                 }
-                val lines = layer.text.split("\\n").take(8)
+                val alignment = when (layer.textAlignment) {
+                    "CENTER" -> android.text.Layout.Alignment.ALIGN_CENTER
+                    "RIGHT" -> android.text.Layout.Alignment.ALIGN_OPPOSITE
+                    else -> android.text.Layout.Alignment.ALIGN_NORMAL
+                }
+                val layoutWidth = maxOf(1, rect.width().toInt())
+                val layout = android.text.StaticLayout.Builder
+                    .obtain(layer.text, 0, layer.text.length, textPaint, layoutWidth)
+                    .setAlignment(alignment)
+                    .setTextDirection(android.text.TextDirectionHeuristics.FIRSTSTRONG_LTR)
+                    .setLineSpacing(0f, layer.lineSpacingMultiplier)
+                    .setIncludePad(false)
+                    .setMaxLines(8)
+                    .build()
                 canvas.save()
                 canvas.clipRect(rect)
-                val lineHeight = paint.textSize * layer.lineSpacingMultiplier
-                val baseline = rect.centerY() - (lines.size - 1) * lineHeight / 2f - (paint.ascent() + paint.descent()) / 2f
-                val textX = when (layer.textAlignment) {
-                    "LEFT" -> rect.left + paint.textSize * 0.12f
-                    "RIGHT" -> rect.right - paint.textSize * 0.12f
-                    else -> rect.centerX()
+                canvas.translate(rect.left, rect.centerY() - layout.height / 2f)
+                when (layer.textEffect) {
+                    "SHADOW" -> {
+                        textPaint.setShadowLayer(layer.effectWidth * shortEdge, 0f, layer.effectWidth * shortEdge, layer.effectColor)
+                        layout.draw(canvas)
+                        textPaint.clearShadowLayer()
+                    }
+                    "OUTLINE" -> {
+                        textPaint.color = layer.effectColor
+                        textPaint.alpha = (alpha * android.graphics.Color.alpha(layer.effectColor) / 255f).toInt()
+                        textPaint.style = Paint.Style.STROKE
+                        textPaint.strokeWidth = maxOf(1f, layer.effectWidth * shortEdge)
+                        layout.draw(canvas)
+                        textPaint.color = layer.fillColor
+                        textPaint.alpha = (alpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
+                        textPaint.style = Paint.Style.FILL
+                        layout.draw(canvas)
+                    }
+                    else -> layout.draw(canvas)
                 }
-                lines.forEachIndexed { index, line ->
-                    val y = baseline + index * lineHeight
-                    if (layer.textEffect == "SHADOW") {
-                        paint.setShadowLayer(layer.effectWidth * shortEdge, 0f, layer.effectWidth * shortEdge, layer.effectColor)
-                        canvas.drawText(line.take(80), textX, y, paint)
-                        paint.clearShadowLayer()
-                    } else if (layer.textEffect == "OUTLINE") {
-                        paint.color = layer.effectColor
-                        paint.alpha = (alpha * android.graphics.Color.alpha(layer.effectColor) / 255f).toInt()
-                        paint.style = Paint.Style.STROKE
-                        paint.strokeWidth = maxOf(1f, layer.effectWidth * shortEdge)
-                        canvas.drawText(line.take(80), textX, y, paint)
-                        paint.color = layer.fillColor
-                        paint.alpha = (alpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
-                        paint.style = Paint.Style.FILL
-                        canvas.drawText(line.take(80), textX, y, paint)
-                    } else {
+                canvas.restore()
+            } else {
                         canvas.drawText(line.take(80), textX, y, paint)
                     }
                 }
