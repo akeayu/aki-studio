@@ -53,17 +53,19 @@ This repository is the public project home and documentation starting point.
 | A1 product inception baseline (AKIDS-A1-INIT-001 v1.0) | Owner-approved; baseline closed |
 | A2 IROKA integration architecture decision (AKIDS-A2-ADR-001) | Owner-approved |
 | Full A2 technical assessment and reconciliation | In progress; not closed |
-| A3 implementation | Not authorized |
-| A4 verification | Not started |
+| A3 local Android MVP | In progress on `feat/a3-local-android-mvp`; not merged |
+| A4 verification | Not started; no Android build/device test evidence yet |
 | A5 deployment/release | Not authorized |
 
-Approval of the A1 baseline and A2 architecture decision does not authorize implementation, deployment, purchases, subscriptions, or other expenditure. Any such work requires separate explicit Owner authorization.
+The Owner subsequently authorized A3 implementation of the local-only Android MVP on 26 November 2026. This authorization excludes network/cloud runtime services, merge to main, deployment/release, purchases, subscriptions, and other expenditure.
 
 Approved baselines must be preserved. Subsequent decisions and changes are to be recorded as controlled addenda or revisions rather than silently overwriting earlier approvals.
 
 ## Platform and technology
 
-The initial target is **Android**. Candidate technologies and dependencies—including native Android/Kotlin, Jetpack Compose, CameraX, computer-vision libraries, on-device model runtimes, and GPU-accelerated rendering—remain subject to A2 technical, compatibility, licensing, security, and performance assessment. This README does not represent a finalized implementation stack.
+The initial target is **Android**. The A3 local MVP now uses native Kotlin and Android platform APIs without third-party runtime libraries. The app has no INTERNET permission and does not require an account, network service, cloud inference, or remote storage. Image import uses the Android document picker; deterministic bitmap operations run on-device; export writes a new image to local shared storage.
+
+This is an initial implementation slice, not the complete product. Current controls are photo import, 90-degree rotation, monochrome preview, reset, and save-copy. The current preview is bounded to 1,800 pixels on its longest edge and saved output to 4,096 pixels; full-resolution non-destructive editing, crop/ID presets, camera capture, print layouts, portrait tools, and local ML/CV remain future A3 work. CPU software bitmap processing is the guaranteed path; no GPU or model dependency is required.
 
 ## Documentation
 
