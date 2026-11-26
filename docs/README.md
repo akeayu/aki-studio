@@ -19,6 +19,7 @@ This directory contains controlled product, architecture, governance, and verifi
 - `implementation/AKIDS-A3-SEG-ASYNC-001-v0.1.0.md` — asynchronous local segmentation, request invalidation, bitmap ownership, stale-result disposal, and lifecycle safeguards.
 - `implementation/AKIDS-A3-SPEC-VALIDATION-001-v0.1.0.md` — fail-closed official-photo provenance, HTTPS source, ISO-date, effective-date validation, and authored JVM tests.
 - `implementation/AKIDS-A3-EXPORT-FORMATS-001-v0.1.0.md` — JPEG/PNG local export, MediaStore publication safety, and metadata limitations.
+- `implementation/AKIDS-A3-PROJECTS-001-v0.1.0.md` — private offline editable projects, original-image preservation, edit recipes, masks, and project management operations.
 
 ## Controlled baseline records
 
