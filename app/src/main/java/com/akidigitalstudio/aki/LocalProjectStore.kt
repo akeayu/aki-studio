@@ -165,6 +165,13 @@ object LocalProjectStore {
         values["contrast"]?.toIntOrNull()?.let { require(it in -100..100) { "Invalid contrast" } }
         values["saturation"]?.toIntOrNull()?.let { require(it in 0..200) { "Invalid saturation" } }
         values["warmth"]?.toIntOrNull()?.let { require(it in -100..100) { "Invalid warmth" } }
+        val cropKeys = listOf("cropLeft", "cropTop", "cropRight", "cropBottom")
+        val cropValues = cropKeys.mapNotNull { key -> values[key]?.takeIf { it.isNotBlank() }?.toFloatOrNull() }
+        require(cropValues.isEmpty() || cropValues.size == 4) { "Incomplete crop rectangle" }
+        if (cropValues.size == 4) {
+            require(cropValues.all { it.isFinite() && it in 0f..1f }) { "Invalid crop coordinates" }
+            require(cropValues[2] > cropValues[0] && cropValues[3] > cropValues[1]) { "Invalid crop rectangle area" }
+        }
     }
 
     fun duplicate(root: File, summary: ProjectSummary): ProjectSummary {
