@@ -47,48 +47,53 @@ object DesignLayerDocument {
     const val MAX_LAYERS = 30
     const val SCHEMA_VERSION = 1
 
+    /** Compact, bounded, dependency-free serialization for Android and local JVM tests. */
     fun encode(layers: List<DesignLayer>): String {
         require(layers.size <= MAX_LAYERS) { "A design can contain at most $MAX_LAYERS layers" }
-        val root = JSONObject().put("schemaVersion", SCHEMA_VERSION)
-        val items = JSONArray()
-        layers.forEach { layer ->
-            val l = layer.validated()
-            items.put(JSONObject()
-                .put("id", l.id).put("name", l.name).put("kind", l.kind)
-                .put("text", l.text).put("shape", l.shape)
-                .put("x", l.x.toDouble()).put("y", l.y.toDouble())
-                .put("width", l.width.toDouble()).put("height", l.height.toDouble())
-                .put("fillColor", l.fillColor).put("strokeColor", l.strokeColor)
-                .put("strokeWidth", l.strokeWidth.toDouble()).put("fontScale", l.fontScale.toDouble())
-                .put("bold", l.bold).put("italic", l.italic)
-                .put("visible", l.visible).put("locked", l.locked).put("opacity", l.opacity.toDouble()))
+        val bytes = java.io.ByteArrayOutputStream()
+        java.io.DataOutputStream(bytes).use { out ->
+            out.writeInt(SCHEMA_VERSION)
+            out.writeInt(layers.size)
+            layers.forEach { raw ->
+                val l = raw.validated()
+                out.writeUTF(l.id); out.writeUTF(l.name); out.writeUTF(l.kind)
+                out.writeUTF(l.text); out.writeUTF(l.shape)
+                out.writeFloat(l.x); out.writeFloat(l.y)
+                out.writeFloat(l.width); out.writeFloat(l.height)
+                out.writeInt(l.fillColor); out.writeInt(l.strokeColor)
+                out.writeFloat(l.strokeWidth); out.writeFloat(l.fontScale)
+                out.writeBoolean(l.bold); out.writeBoolean(l.italic)
+                out.writeBoolean(l.visible); out.writeBoolean(l.locked)
+                out.writeFloat(l.opacity)
+            }
         }
-        return root.put("layers", items).toString()
+        return java.util.Base64.getEncoder().encodeToString(bytes.toByteArray())
     }
 
     fun decode(serialized: String?): MutableList<DesignLayer> {
         if (serialized.isNullOrBlank()) return mutableListOf()
         require(serialized.length <= 48_000) { "Design layer document is too large" }
-        val root = JSONObject(serialized)
-        require(root.optInt("schemaVersion") == SCHEMA_VERSION) { "Unsupported design layer schema" }
-        val items = root.optJSONArray("layers") ?: JSONArray()
-        require(items.length() <= MAX_LAYERS) { "Too many design layers" }
+        val bytes = try { java.util.Base64.getDecoder().decode(serialized) }
+            catch (_: IllegalArgumentException) { throw IllegalArgumentException("Invalid design layer encoding") }
+        val input = java.io.DataInputStream(bytes.inputStream())
+        require(input.readInt() == SCHEMA_VERSION) { "Unsupported design layer schema" }
+        val count = input.readInt()
+        require(count in 0..MAX_LAYERS) { "Invalid design layer count" }
         val result = mutableListOf<DesignLayer>()
-        for (i in 0 until items.length()) {
-            val o = items.getJSONObject(i)
+        repeat(count) {
             result += DesignLayer(
-                id = o.getString("id"), name = o.getString("name"), kind = o.getString("kind"),
-                text = o.optString("text"), shape = o.optString("shape"),
-                x = o.getDouble("x").toFloat(), y = o.getDouble("y").toFloat(),
-                width = o.getDouble("width").toFloat(), height = o.getDouble("height").toFloat(),
-                fillColor = o.optInt("fillColor", -1), strokeColor = o.optInt("strokeColor", 0xFF75E0C0.toInt()),
-                strokeWidth = o.optDouble("strokeWidth", 0.006).toFloat(),
-                fontScale = o.optDouble("fontScale", 0.055).toFloat(),
-                bold = o.optBoolean("bold"), italic = o.optBoolean("italic"),
-                visible = o.optBoolean("visible", true), locked = o.optBoolean("locked"),
-                opacity = o.optDouble("opacity", 1.0).toFloat()
+                id = input.readUTF(), name = input.readUTF(), kind = input.readUTF(),
+                text = input.readUTF(), shape = input.readUTF(),
+                x = input.readFloat(), y = input.readFloat(),
+                width = input.readFloat(), height = input.readFloat(),
+                fillColor = input.readInt(), strokeColor = input.readInt(),
+                strokeWidth = input.readFloat(), fontScale = input.readFloat(),
+                bold = input.readBoolean(), italic = input.readBoolean(),
+                visible = input.readBoolean(), locked = input.readBoolean(),
+                opacity = input.readFloat()
             ).validated()
         }
+        require(input.available() == 0) { "Unexpected data after design layer document" }
         return result
     }
 }
@@ -111,7 +116,7 @@ object DesignLayerRenderer {
             if (layer.kind == "TEXT") {
                 val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = layer.fillColor
-                    this.alpha = alpha
+                    this.alpha = (alpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
                     textSize = layer.fontScale * shortEdge
                     typeface = Typeface.create(Typeface.SANS_SERIF,
                         (if (layer.bold) Typeface.BOLD else Typeface.NORMAL) or
@@ -127,12 +132,12 @@ object DesignLayerRenderer {
             } else {
                 val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = layer.fillColor
-                    this.alpha = alpha
+                    this.alpha = (alpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
                     style = Paint.Style.FILL
                 }
                 val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = layer.strokeColor
-                    this.alpha = alpha
+                    this.alpha = (alpha * android.graphics.Color.alpha(layer.strokeColor) / 255f).toInt()
                     style = Paint.Style.STROKE
                     strokeWidth = layer.strokeWidth * shortEdge
                 }
