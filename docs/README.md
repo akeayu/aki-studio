@@ -24,6 +24,7 @@ This directory contains controlled product, architecture, governance, and verifi
 - `implementation/AKIDS-A3-CROP-NAMING-001-v0.1.0.md` — interactive crop selection, project crop persistence, user-supplied export names, and reusable local filename patterns.
 - `implementation/AKIDS-A3-HISTORY-001-v0.1.0.md` — bounded in-session undo/redo for non-destructive edit recipes; bitmap-mask stroke history remains separate.
 - `implementation/AKIDS-A3-UI-SYSTEM-001-v0.1.0.md` — reusable futuristic studio UI components, categorized workspace shell, interaction/accessibility principles, and unified creative-workspace direction.
+- `implementation/AKIDS-A3-LAYERS-TYPE-VECTOR-001-v0.1.0.md` — versioned editable layers, local CPU compositing, typography, vector primitives, project persistence and verification limits.
 
 ## Controlled baseline records
 
