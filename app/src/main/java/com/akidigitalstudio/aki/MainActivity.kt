@@ -1,6 +1,7 @@
 package com.akidigitalstudio.aki
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Bitmap
@@ -28,6 +29,10 @@ class MainActivity : Activity() {
     private var rotation = 0f
     private var monochrome = false
     private var english = false
+    private var cropRatio: Float? = null
+    private var outputWidthPx: Int? = null
+    private var outputHeightPx: Int? = null
+    private var cropLabel: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,10 +81,15 @@ class MainActivity : Activity() {
         page.addView(row1)
 
         val row2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row2.addView(actionButton(if (english) "B&W" else "ጥቁር ነጭ") { toggleMonochrome() }, weighted())
-        row2.addView(actionButton(if (english) "Reset" else "መልስ") { resetEdits() }, weighted())
-        row2.addView(actionButton(if (english) "Save copy" else "ቅጂ አስቀምጥ") { saveCopy() }, weighted())
+        row2.addView(actionButton(if (english) "Crop" else "ቁረጥ") { chooseCrop() }, weighted())
+        row2.addView(actionButton(if (english) "ID / Passport" else "መታወቂያ / ፓስፖርት") { chooseIdPreset() }, weighted())
         page.addView(row2)
+
+        val row3 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        row3.addView(actionButton(if (english) "B&W" else "ጥቁር ነጭ") { toggleMonochrome() }, weighted())
+        row3.addView(actionButton(if (english) "Reset" else "መልስ") { resetEdits() }, weighted())
+        row3.addView(actionButton(if (english) "Save copy" else "ቅጂ አስቀምጥ") { saveCopy() }, weighted())
+        page.addView(row3)
 
         val language = Button(this).apply {
             text = if (english) "አማርኛ" else "English"
@@ -124,11 +134,10 @@ class MainActivity : Activity() {
             // Some document providers grant a transient read-only URI.
         }
         sourceUri = uri
-        rotation = 0f
-        monochrome = false
+        clearEdits()
         try {
             previewBitmap?.recycle()
-            previewBitmap = decodeBounded(uri, PREVIEW_MAX_EDGE)
+            previewBitmap = buildEditedBitmap(PREVIEW_MAX_EDGE)
             renderPreview()
             showStatus(if (english) "Photo opened locally. Original file is unchanged." else "ፎቶው በመሣሪያው ላይ ተከፍቷል። ዋናው ፋይል አልተቀየረም።")
         } catch (error: Exception) {
@@ -151,59 +160,139 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun buildEditedBitmap(maxEdge: Int): Bitmap {
+        val uri = sourceUri ?: throw IOException("No source image")
+        var image = decodeBounded(uri, maxEdge)
+        try {
+            repeat((rotation / 90f).toInt()) {
+                val rotated = ImageEditorEngine.rotate(image, 90f)
+                image.recycle()
+                image = rotated
+            }
+            cropRatio?.let { ratio ->
+                val cropped = ImageEditorEngine.cropCenter(image, ratio)
+                image.recycle()
+                image = cropped
+            }
+            if (monochrome) {
+                val filtered = ImageEditorEngine.monochrome(image)
+                image.recycle()
+                image = filtered
+            }
+            val targetW = outputWidthPx
+            val targetH = outputHeightPx
+            if (targetW != null && targetH != null && maxEdge > PREVIEW_MAX_EDGE) {
+                val resized = ImageEditorEngine.resize(image, targetW, targetH)
+                image.recycle()
+                image = resized
+            }
+            return image
+        } catch (error: Exception) {
+            image.recycle()
+            throw error
+        }
+    }
+
+    private fun chooseCrop() {
+        if (sourceUri == null) return noPhoto()
+        val labels = arrayOf(
+            if (english) "Original proportions" else "የመጀመሪያው መጠን",
+            "1:1  Square", "3:4  Portrait", "4:5  Portrait",
+            "5:4  Landscape", "16:9  Landscape"
+        )
+        val ratios = arrayOf<Float?>(null, 1f, 3f / 4f, 4f / 5f, 5f / 4f, 16f / 9f)
+        AlertDialog.Builder(this)
+            .setTitle(if (english) "Center crop" else "መሃል ላይ መቁረጥ")
+            .setItems(labels) { _, which ->
+                cropRatio = ratios[which]
+                outputWidthPx = null
+                outputHeightPx = null
+                cropLabel = if (which == 0) null else labels[which]
+                refreshPreview()
+            }
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .show()
+    }
+
+    private fun chooseIdPreset() {
+        if (sourceUri == null) return noPhoto()
+        val labels = arrayOf(
+            "3.5 × 4.5 cm — 35 × 45 mm (300 DPI)",
+            "2 × 2 inch — US passport (300 DPI)",
+            if (english) "Clear crop preset" else "የቁረጥ መጠንን አጽዳ"
+        )
+        AlertDialog.Builder(this)
+            .setTitle(if (english) "ID and passport formats" else "የመታወቂያ እና ፓስፖርት መጠኖች")
+            .setItems(labels) { _, which ->
+                when (which) {
+                    0 -> applyPreset(35f / 45f, 413, 531, labels[0])
+                    1 -> applyPreset(1f, 600, 600, labels[1])
+                    else -> {
+                        cropRatio = null
+                        outputWidthPx = null
+                        outputHeightPx = null
+                        cropLabel = null
+                        refreshPreview()
+                    }
+                }
+            }
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .show()
+    }
+
+    private fun applyPreset(ratio: Float, width: Int, height: Int, label: String) {
+        cropRatio = ratio
+        outputWidthPx = width
+        outputHeightPx = height
+        cropLabel = label
+        refreshPreview()
+    }
+
+    private fun refreshPreview() {
+        try {
+            val next = buildEditedBitmap(PREVIEW_MAX_EDGE)
+            previewBitmap?.recycle()
+            previewBitmap = next
+            renderPreview()
+            val description = cropLabel?.let { " · $it" } ?: ""
+            showStatus(if (english) "Local edit preview$description. Original is unchanged." else "በመሣሪያው ላይ የተደረገ ማስተካከያ$description። ዋናው ፎቶ አልተቀየረም።")
+        } catch (error: Exception) {
+            showStatus(if (english) "Could not update preview: ${error.message ?: "image error"}" else "ቅድመ እይታውን ማዘመን አልተቻለም።")
+        }
+    }
+
+    private fun clearEdits() {
+        rotation = 0f
+        monochrome = false
+        cropRatio = null
+        outputWidthPx = null
+        outputHeightPx = null
+        cropLabel = null
+    }
+
     private fun rotatePhoto() {
-        val current = previewBitmap ?: return noPhoto()
-        val next = ImageEditorEngine.rotate(current, 90f)
-        current.recycle()
-        previewBitmap = next
+        if (sourceUri == null) return noPhoto()
         rotation = (rotation + 90f) % 360f
-        renderPreview()
+        refreshPreview()
     }
 
     private fun toggleMonochrome() {
-        val current = previewBitmap ?: return noPhoto()
-        val next = if (!monochrome) ImageEditorEngine.monochrome(current) else decodeCurrentPreview()
-        current.recycle()
-        previewBitmap = next
+        if (sourceUri == null) return noPhoto()
         monochrome = !monochrome
-        renderPreview()
-    }
-
-    private fun decodeCurrentPreview(): Bitmap {
-        val uri = sourceUri ?: throw IOException("No source image")
-        var image = decodeBounded(uri, PREVIEW_MAX_EDGE)
-        repeat((rotation / 90f).toInt()) {
-            val rotated = ImageEditorEngine.rotate(image, 90f)
-            image.recycle()
-            image = rotated
-        }
-        return image
+        refreshPreview()
     }
 
     private fun resetEdits() {
         if (sourceUri == null) return noPhoto()
-        rotation = 0f
-        monochrome = false
-        previewBitmap?.recycle()
-        previewBitmap = decodeBounded(sourceUri!!, PREVIEW_MAX_EDGE)
-        renderPreview()
+        clearEdits()
+        refreshPreview()
         showStatus(if (english) "Edits reset. Original is unchanged." else "ለውጦቹ ተመልሰዋል። ዋናው ፎቶ አልተቀየረም።")
     }
 
     private fun saveCopy() {
         val uri = sourceUri ?: return noPhoto()
         try {
-            var output = decodeBounded(uri, EXPORT_MAX_EDGE)
-            repeat((rotation / 90f).toInt()) {
-                val rotated = ImageEditorEngine.rotate(output, 90f)
-                output.recycle()
-                output = rotated
-            }
-            if (monochrome) {
-                val filtered = ImageEditorEngine.monochrome(output)
-                output.recycle()
-                output = filtered
-            }
+            val output = buildEditedBitmap(EXPORT_MAX_EDGE)
             val values = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, "aki_${System.currentTimeMillis()}.jpg")
                 put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
