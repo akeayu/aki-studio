@@ -62,7 +62,7 @@ object LocalProjectStore {
             }
             check(sourceFile.length() > 0L) { "Source image is empty" }
             require(values.size <= 40 && values.all { (key, value) ->
-                key.matches(Regex("[A-Za-z][A-Za-z0-9]*")) && value.length <= 48_000
+                key.matches(Regex("[A-Za-z][A-Za-z0-9]*")) && value.length <= 128_000
             } && values.values.sumOf { it.length.toLong() } <= 96_000L) { "Project edit settings are invalid" }
             val maskFile = File(directory, MASK)
             val hasMask = mask?.let { bitmap ->
