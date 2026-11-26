@@ -58,6 +58,8 @@ class DesignLayerOverlayView(context: Context) : View(context) {
     private var resizeCorner = -1
     private var snappedX = false
     private var snappedY = false
+    private var snapGuideX: Float? = null
+    private var snapGuideY: Float? = null
 
     private enum class GestureMode { NONE, MOVE, RESIZE, ROTATE }
 
@@ -118,8 +120,8 @@ class DesignLayerOverlayView(context: Context) : View(context) {
         canvas.drawCircle(selectedRect.centerX(), rotateY, radius + 1f, handleOutline)
         canvas.drawText(layer.name, selectedRect.left, (selectedRect.top - 12f * resources.displayMetrics.density).coerceAtLeast(16f), labelPaint)
         canvas.restore()
-        if (snappedX) canvas.drawLine(imageBounds.centerX(), imageBounds.top, imageBounds.centerX(), imageBounds.bottom, guidePaint)
-        if (snappedY) canvas.drawLine(imageBounds.left, imageBounds.centerY(), imageBounds.right, imageBounds.centerY(), guidePaint)
+        if (snappedX) snapGuideX?.let { value -> val x = imageBounds.left + value * imageBounds.width(); canvas.drawLine(x, imageBounds.top, x, imageBounds.bottom, guidePaint) }
+        if (snappedY) snapGuideY?.let { value -> val y = imageBounds.top + value * imageBounds.height(); canvas.drawLine(imageBounds.left, y, imageBounds.right, y, guidePaint) }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -164,6 +166,8 @@ class DesignLayerOverlayView(context: Context) : View(context) {
                 val dy = (event.y - downY) / imageBounds.height()
                 snappedX = false
                 snappedY = false
+                snapGuideX = null
+                snapGuideY = null
                 working = when (gestureMode) {
                     GestureMode.MOVE -> {
                         var nx = (base.x + dx).coerceIn(0f, 1f)
@@ -173,8 +177,10 @@ class DesignLayerOverlayView(context: Context) : View(context) {
                         ny = objectSnap.layer.y
                         snappedX = objectSnap.snappedX
                         snappedY = objectSnap.snappedY
-                        if (!snappedX && kotlin.math.abs(nx - 0.5f) < 0.018f) { nx = 0.5f; snappedX = true }
-                        if (!snappedY && kotlin.math.abs(ny - 0.5f) < 0.018f) { ny = 0.5f; snappedY = true }
+                        if (snappedX) snapGuideX = nx
+                        if (snappedY) snapGuideY = ny
+                        if (!snappedX && kotlin.math.abs(nx - 0.5f) < 0.018f) { nx = 0.5f; snappedX = true; snapGuideX = nx }
+                        if (!snappedY && kotlin.math.abs(ny - 0.5f) < 0.018f) { ny = 0.5f; snappedY = true; snapGuideY = ny }
                         base.copy(x = nx, y = ny)
                     }
                     GestureMode.RESIZE -> {
@@ -208,6 +214,8 @@ class DesignLayerOverlayView(context: Context) : View(context) {
                 resizeCorner = -1
                 snappedX = false
                 snappedY = false
+                snapGuideX = null
+                snapGuideY = null
                 parent?.requestDisallowInterceptTouchEvent(false)
                 invalidate()
                 performClick()
