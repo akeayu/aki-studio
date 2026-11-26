@@ -24,6 +24,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import java.io.IOException
+import java.io.File
+import java.io.FileInputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -154,6 +156,11 @@ class MainActivity : Activity() {
         row9.addView(actionButton(if (english) "Quick local background estimate" else "የጀርባ ቦታን በመሣሪያው ገምት") { runLocalForegroundEstimate() }, weighted())
         page.addView(row9)
 
+        val row10 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        row10.addView(actionButton(if (english) "Save project" else "ፕሮጀክት አስቀምጥ") { saveLocalProject() }, weighted())
+        row10.addView(actionButton(if (english) "Open project" else "ፕሮጀክት ክፈት") { openLocalProject() }, weighted())
+        page.addView(row10)
+
         val language = Button(this).apply {
             text = if (english) "አማርኛ" else "English"
             setOnClickListener {
@@ -214,7 +221,7 @@ class MainActivity : Activity() {
     }
 
     private fun decodeBounded(uri: Uri, maxEdge: Int): Bitmap {
-        val source = ImageDecoder.createSource(contentResolver, uri)
+        val source = if (uri.scheme == "file") ImageDecoder.createSource(File(uri.path ?: throw IOException("Invalid local project image"))) else ImageDecoder.createSource(contentResolver, uri)
         return ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
             decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
             val w = info.size.width
@@ -478,6 +485,121 @@ class MainActivity : Activity() {
         clearEdits()
         refreshPreview()
         showStatus(if (english) "Edits reset. Original is unchanged." else "ለውጦቹ ተመልሰዋል። ዋናው ፎቶ አልተቀየረም።")
+    }
+
+
+    private fun saveLocalProject() {
+        val uri = sourceUri ?: return noPhoto()
+        val nameInput = EditText(this).apply {
+            hint = if (english) "Project name" else "የፕሮጀክት ስም"
+            setSingleLine(true)
+            setText(cropLabel?.take(40) ?: if (english) "My photo project" else "የእኔ የፎቶ ፕሮጀክት")
+        }
+        AlertDialog.Builder(this)
+            .setTitle(if (english) "Save editable project" else "ሊስተካከል የሚችል ፕሮጀክት አስቀምጥ")
+            .setMessage(if (english) "A private copy of the original image and your edit settings will be stored on this device. Nothing is uploaded." else "የዋናው ፎቶ ቅጂና የማስተካከያ ቅንብሮች በዚህ መሣሪያ ብቻ ይቀመጣሉ። ምንም ነገር አይላክም።")
+            .setView(nameInput)
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Save project" else "አስቀምጥ", null)
+            .create().also { dialog ->
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val name = nameInput.text.toString().trim()
+                        if (name.isBlank() || name.length > 60) {
+                            showStatus(if (english) "Enter a project name up to 60 characters." else "እስከ 60 ፊደል ያለውን የፕሮጀክት ስም ያስገቡ።")
+                            return@setOnClickListener
+                        }
+                        try {
+                            val input = if (uri.scheme == "file") FileInputStream(File(uri.path ?: throw IOException("Invalid source path"))) else contentResolver.openInputStream(uri)
+                                ?: throw IOException("Could not read original image")
+                            val mask = if (backgroundReplaceEnabled) {
+                                autoMaskBitmap?.copy(Bitmap.Config.ARGB_8888, false)
+                                    ?: previewBitmap?.let { maskOverlay.renderMask(it.width, it.height) }
+                            } else null
+                            val summary = try {
+                                LocalProjectStore.save(filesDir, name, input, projectSettings(), mask)
+                            } finally {
+                                mask?.recycle()
+                            }
+                            dialog.dismiss()
+                            showStatus(if (english) "Project saved privately on this device: ${summary.name}" else "ፕሮጀክቱ በዚህ መሣሪያ ብቻ ተቀምጧል፦ ${summary.name}")
+                        } catch (error: Exception) {
+                            showStatus(if (english) "Project save failed: ${error.message ?: "storage error"}" else "ፕሮጀክቱን ማስቀመጥ አልተሳካም።")
+                        }
+                    }
+                }
+                dialog.show()
+            }
+    }
+
+    private fun projectSettings(): Map<String, String> = mapOf(
+        "rotation" to rotation.toString(),
+        "monochrome" to monochrome.toString(),
+        "cropRatio" to (cropRatio?.toString() ?: ""),
+        "outputWidthPx" to (outputWidthPx?.toString() ?: ""),
+        "outputHeightPx" to (outputHeightPx?.toString() ?: ""),
+        "resizeMaxWidthPx" to (resizeMaxWidthPx?.toString() ?: ""),
+        "resizeMaxHeightPx" to (resizeMaxHeightPx?.toString() ?: ""),
+        "cropLabel" to (cropLabel ?: ""),
+        "cropHorizontal" to cropHorizontal.toString(),
+        "cropVertical" to cropVertical.toString(),
+        "backgroundReplaceEnabled" to backgroundReplaceEnabled.toString(),
+        "backgroundColor" to backgroundColor.toString(),
+        "headHeightPercent" to headHeightPercent.toString(),
+        "eyeLinePercent" to eyeLinePercent.toString(),
+        "guidesVisible" to guidesVisible.toString()
+    )
+
+    private fun openLocalProject() {
+        val projects = LocalProjectStore.list(filesDir)
+        if (projects.isEmpty()) {
+            showStatus(if (english) "No saved projects on this device yet." else "በዚህ መሣሪያ ላይ የተቀመጠ ፕሮጀክት የለም።")
+            return
+        }
+        val labels = projects.map { summary ->
+            val date = java.text.DateFormat.getDateTimeInstance().format(java.util.Date(summary.updatedAt))
+            "${summary.name} — $date"
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(if (english) "Open local project" else "የተቀመጠ ፕሮጀክት ክፈት")
+            .setItems(labels) { _, which -> restoreLocalProject(projects[which]) }
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .show()
+    }
+
+    private fun restoreLocalProject(summary: LocalProjectStore.ProjectSummary) {
+        try {
+            val data = LocalProjectStore.load(summary)
+            cancelSegmentationRequest()
+            sourceUri = Uri.fromFile(data.sourceFile)
+            clearEdits()
+            val values = data.values
+            rotation = values["rotation"]?.toFloatOrNull()?.takeIf { it.isFinite() }?.rem(360f) ?: 0f
+            monochrome = values["monochrome"].toBoolean()
+            cropRatio = values["cropRatio"]?.toFloatOrNull()?.takeIf { it.isFinite() && it > 0f }
+            outputWidthPx = values["outputWidthPx"]?.toIntOrNull()
+            outputHeightPx = values["outputHeightPx"]?.toIntOrNull()
+            resizeMaxWidthPx = values["resizeMaxWidthPx"]?.toIntOrNull()
+            resizeMaxHeightPx = values["resizeMaxHeightPx"]?.toIntOrNull()
+            cropLabel = values["cropLabel"]?.takeIf { it.isNotBlank() }
+            cropHorizontal = values["cropHorizontal"]?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0.5f
+            cropVertical = values["cropVertical"]?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0.5f
+            backgroundReplaceEnabled = values["backgroundReplaceEnabled"].toBoolean()
+            backgroundColor = values["backgroundColor"]?.toIntOrNull() ?: android.graphics.Color.WHITE
+            headHeightPercent = values["headHeightPercent"]?.toIntOrNull()?.coerceIn(40, 90) ?: 70
+            eyeLinePercent = values["eyeLinePercent"]?.toIntOrNull()?.coerceIn(20, 70) ?: 42
+            guidesVisible = values["guidesVisible"].toBoolean()
+            autoMaskBitmap = data.mask
+            previewBitmap?.recycle()
+            originalPreviewBitmap?.recycle()
+            originalPreviewBitmap = decodeBounded(sourceUri!!, ORIGINAL_PREVIEW_MAX_EDGE)
+            previewBitmap = buildEditedBitmap(PREVIEW_MAX_EDGE)
+            if (backgroundReplaceEnabled && autoMaskBitmap != null) maskOverlay.setBaseMask(autoMaskBitmap)
+            renderPreview()
+            showStatus(if (english) "Project reopened locally. Original image and editable settings restored." else "ፕሮጀክቱ በመሣሪያው ላይ እንደገና ተከፍቷል። ዋናው ፎቶና ቅንብሮቹ ተመልሰዋል።")
+        } catch (error: Exception) {
+            showStatus(if (english) "Could not open project: ${error.message ?: "project error"}" else "ፕሮጀክቱን መክፈት አልተቻለም።")
+        }
     }
 
     private fun saveCopy() {
