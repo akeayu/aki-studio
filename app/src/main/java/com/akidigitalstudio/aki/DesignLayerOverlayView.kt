@@ -199,8 +199,10 @@ class DesignLayerOverlayView(context: Context) : View(context) {
                         val nw = (base.width + (if (right) localDx else -localDx)).coerceIn(0.01f, 1f)
                         val nh = (base.height + (if (bottom) localDy else -localDy)).coerceIn(0.01f, 1f)
                         val radians = Math.toRadians(base.rotationDegrees.toDouble())
-                        val shiftX = (localDx * kotlin.math.cos(radians) - localDy * kotlin.math.sin(radians)) / 2f
-                        val shiftY = (localDx * kotlin.math.sin(radians) + localDy * kotlin.math.cos(radians)) / 2f
+                        val shiftX = ((localDx.toDouble() * kotlin.math.cos(radians) -
+                            localDy.toDouble() * kotlin.math.sin(radians)) / 2.0).toFloat()
+                        val shiftY = ((localDx.toDouble() * kotlin.math.sin(radians) +
+                            localDy.toDouble() * kotlin.math.cos(radians)) / 2.0).toFloat()
                         base.copy(
                             x = (base.x + shiftX).coerceIn(0f, 1f),
                             y = (base.y + shiftY).coerceIn(0f, 1f),
