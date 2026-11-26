@@ -5,8 +5,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
-import org.json.JSONArray
-import org.json.JSONObject
 import java.util.UUID
 
 /** Serializable, non-destructive design objects in normalized canvas coordinates. */
