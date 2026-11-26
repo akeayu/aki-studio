@@ -8,7 +8,8 @@ The app is a native Kotlin Android application. It has no third-party runtime de
 
 - JDK 17
 - Android SDK Platform 36
-- Android Gradle Plugin 8.9.1
+- Gradle 8.11.1
+- Android Gradle Plugin 8.9.1 (minimum supported for API 36)
 - Kotlin Android plugin 2.1.20
 - Minimum supported Android: API 29
 
