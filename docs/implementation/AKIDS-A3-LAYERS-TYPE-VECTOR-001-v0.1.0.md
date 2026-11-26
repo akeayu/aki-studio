@@ -12,8 +12,8 @@
 - Layer mutations participate in the existing recipe undo/redo snapshots.
 
 ## Editing capabilities
-- Add text with editable content, font scale, bold and italic.
-- Add vector rectangle, ellipse and line objects.
+- Add text with editable content, multiline layout, font scale, color, bold and italic.
+- Add vector rectangle, ellipse and line objects with editable fill/stroke colors and stroke width.
 - Manage layers: select, edit text, toggle visibility, lock/unlock, raise/lower z-order, and delete.
 - Adjust object position and size using normalized coordinates and bounded controls.
 - Export compositing uses the same renderer as the preview.
@@ -32,6 +32,6 @@
 - Project schema version is not bumped; the new field is optional and bounded.
 
 ## Verification
-- Unit tests authored for round-trip serialization, legacy empty documents, layer-count limit and coordinate validation.
+- Unit tests authored for text/shape round-trip serialization, legacy empty documents, layer-count limit, coordinate validation, duplicate IDs, and undo/redo restoration of layer recipes.
 - Static source checks may be performed through repository readback.
 - Gradle/JUnit, Android device rendering, Amharic font coverage, memory/latency, export and airplane-mode runtime tests remain pending until executed.
