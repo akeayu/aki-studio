@@ -1,5 +1,9 @@
 # Aki Studio Android application
 
+## Adaptive workspace UI
+
+The native View shell uses the current app-window bounds to select compact, medium, and expanded layouts. It adapts action-grid density, tool-panel columns, preview height, page gutters, maximum content width, and system insets. Orientation and window-size changes rebuild the view tree while retaining the active editing state. Shared UI primitives include section panels, action cards, chips, metric widgets, empty states, status labels, and preview surfaces. The layout does not infer fold posture or depend on hardware model names; foldable hinge-aware behavior remains a future verified enhancement.
+
 ## Runtime boundary
 
 Aki Studio is a native Kotlin Android application. Its manifest does not request the INTERNET permission. Photo selection, editing, quality heuristics, mask estimation, rendering and export are designed to run on the device. There is no login, cloud sync, remote inference, telemetry, or IROKA runtime dependency.
