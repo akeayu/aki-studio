@@ -881,7 +881,7 @@ class MainActivity : Activity() {
     }
 
     private fun renderPreview() {
-        preview.setImageBitmap(if (showingOriginal) originalPreviewBitmap else previewBitmap)
+        preview.setImageBitmap(if (showingOriginal) originalPreviewBitmap else (autoPreviewBitmap ?: previewBitmap))
         guideOverlay.configure(if (showingOriginal) originalPreviewBitmap else previewBitmap, headHeightPercent, eyeLinePercent, guidesVisible && !showingOriginal)
         if (::maskOverlay.isInitialized) maskOverlay.configure(previewBitmap, false)
     }
