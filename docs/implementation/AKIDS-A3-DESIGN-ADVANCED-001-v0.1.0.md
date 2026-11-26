@@ -90,6 +90,15 @@ The editable layer schema now supports:
 | JUnit suite | NOT RUN |
 | Physical-device verification | NOT RUN |
 
+## Automated verification workflow
+
+Added `.github/workflows/android-verify.yml` on the feature branch:
+- JVM unit tests and debug APK assembly on pushes to the A3 branch.
+- API 29 emulator instrumentation job for the private project save/reopen regression.
+- Debug APK uploaded as a workflow artifact.
+
+The workflow definition is committed. Its execution result is not yet confirmed in this record; workflow configuration is not equivalent to a successful build or test run.
+
 ## Next verification sequence
 
 1. Run the complete Gradle unit-test suite and resolve compilation/test failures.
