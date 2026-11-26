@@ -95,7 +95,7 @@ class OfficialPhotoSpecEngineTest {
     }
 
     @Test
-    fun 35By45MillimetresConvertsToExpected300DpiPixels() {
+    fun thirtyFiveByFortyFiveMillimetresConvertsToExpected300DpiPixels() {
         assertEquals(413, OfficialPhotoSpecEngine.pixelsAt300Dpi(35))
         assertEquals(531, OfficialPhotoSpecEngine.pixelsAt300Dpi(45))
     }
