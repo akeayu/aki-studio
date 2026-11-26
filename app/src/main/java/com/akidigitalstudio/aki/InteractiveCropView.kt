@@ -68,11 +68,21 @@ class InteractiveCropView(
     )
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val desiredHeight = (420f * resources.displayMetrics.density).toInt()
-        setMeasuredDimension(
-            resolveSize(suggestedMinimumWidth, widthMeasureSpec),
-            resolveSize(desiredHeight, heightMeasureSpec)
-        )
+        val density = resources.displayMetrics.density
+        val desiredWidth = (320f * density).toInt()
+        val desiredHeight = (420f * density).toInt()
+        val widthMode = MeasureSpec.getMode(widthMeasureSpec)
+        val heightMode = MeasureSpec.getMode(heightMeasureSpec)
+        val measuredWidth = when (widthMode) {
+            MeasureSpec.EXACTLY, MeasureSpec.AT_MOST -> MeasureSpec.getSize(widthMeasureSpec)
+            else -> desiredWidth
+        }
+        val measuredHeight = when (heightMode) {
+            MeasureSpec.EXACTLY -> MeasureSpec.getSize(heightMeasureSpec)
+            MeasureSpec.AT_MOST -> min(desiredHeight, MeasureSpec.getSize(heightMeasureSpec))
+            else -> desiredHeight
+        }
+        setMeasuredDimension(measuredWidth, measuredHeight)
     }
 
     override fun onDraw(canvas: Canvas) {
