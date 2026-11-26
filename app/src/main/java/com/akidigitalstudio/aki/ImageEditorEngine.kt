@@ -49,6 +49,18 @@ object ImageEditorEngine {
         return Bitmap.createBitmap(source, left, top, cropWidth, cropHeight)
     }
 
+    fun cropNormalized(source: Bitmap, left: Float, top: Float, right: Float, bottom: Float): Bitmap {
+        require(listOf(left, top, right, bottom).all { it.isFinite() && it in 0f..1f }) {
+            "Crop coordinates must be normalized"
+        }
+        require(right > left && bottom > top) { "Crop rectangle must have positive area" }
+        val x = (left * source.width).toInt().coerceIn(0, source.width - 1)
+        val y = (top * source.height).toInt().coerceIn(0, source.height - 1)
+        val endX = (right * source.width).toInt().coerceIn(x + 1, source.width)
+        val endY = (bottom * source.height).toInt().coerceIn(y + 1, source.height)
+        return Bitmap.createBitmap(source, x, y, endX - x, endY - y)
+    }
+
     fun resizeWithin(source: Bitmap, maxWidth: Int, maxHeight: Int): Bitmap {
         require(maxWidth > 0 && maxHeight > 0) { "Maximum dimensions must be positive" }
         require(maxWidth.toLong() * maxHeight.toLong() <= 4_000_000L) {
