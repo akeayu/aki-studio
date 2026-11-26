@@ -70,18 +70,24 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 ### Direct manipulation
 - Select the topmost visible layer on the preview.
 - Drag inside the selection to move it; drag any corner handle to resize; use the top handle to rotate.
-- Position snaps to canvas center axes and rotation snaps to 15-degree increments.
+- Position snaps to nearby visible object centers/edges, with canvas-center fallback; rotation snaps to 15-degree increments.
+- Rotated-layer corner resizing uses inverse-rotated local deltas and anchors the opposite corner.
 - A completed gesture creates one edit-history step.
-- Layer schema v2 persists rotation and continues to decode v1 project layer payloads.
+- Layer schema v3 persists typography, path geometry and transforms; decodes schema v1 and v2 payloads.
 
 ### Layer-based Design Studio
 - A versioned, non-destructive design document supports up to 30 editable layers.
-- Typography layers support editable text, multiline content, system sans-serif, bold and italic styling.
-- Vector primitives include rectangles, ellipses and lines with fill, stroke and opacity.
-- Layer management supports visibility, locking, normalized position/size, stacking order and deletion.
+- Typography supports editable Amharic/English mixed-script text, left/center/right alignment, line spacing, bold/italic, system sans/serif/monospace/condensed/medium faces, and shadow/outline effects.
+- Ethiopic text uses Android's system sans-serif and Unicode fallback; this is not a bundled or independently verified Amharic font family. Device font coverage and shaping still require physical-device testing.
+- Paragraph rendering uses Android StaticLayout for mixed-script shaping, line breaking, alignment and bidi text direction.
+- Vector primitives include rectangles, ellipses and lines; custom paths support M/L/Q/C/Z commands with bounded normalized coordinates.
+- Custom path geometry is editable through layer properties and persisted in private projects.
+- Multi-selection supports group translation, uniform scaling and rotation around the selected group's visual bounds; locked layers are protected.
+- Layer management supports visibility, locking, normalized position/size, drag-and-drop z-order, and deletion.
+- Object-to-object snapping aligns moving layers to visible peer centers and edges.
 - Design layers are stored with private local projects and participate in the existing 100-step recipe history.
 - A shared CPU renderer composites layers into the preview/export bitmap without mutating the original source.
-- Text/vector objects are rasterized at export; arbitrary paths, SVG import, gradients, font selection, kerning, snapping, multi-select and touch transform handles are not implemented yet.
+- Text/vector objects are rasterized at export; SVG import/export, gradients, bundled font libraries, kerning controls, on-canvas Bézier node editing, configurable snapping guides and multi-touch group gestures are not implemented yet.
 
 ### Studio interface
 - Reusable native-view design system with a dark cinematic workspace shell, restrained mint/cyan accents, rounded surfaces, status badges and ripple-enabled action tiles.
@@ -96,6 +102,7 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 ## Known limitations
 
 - No actual Gradle build, APK, emulator installation, or physical-device test has been recorded.
+- No bundled Ethiopic font file or license record has been added; Ethiopic glyph fallback depends on the Android device's installed fonts.
 - Per-stroke mask history, autosave/recovery journal, camera capture, batch processing, and advanced portrait retouching are not implemented yet.
 - Tonal adjustment controls are global RGB approximations; no calibrated white balance, colour management, curves, selective adjustment, sharpening, or noise reduction yet.
 - Background segmentation currently depends on a low-confidence border-colour heuristic; manual inspection and correction are required.
@@ -113,8 +120,8 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 | Static source review | Partial; individual source checks only |
 | Synthetic segmentation harness | Reference algorithm checks passed; not Kotlin runtime evidence |
 | Gradle dependency resolution/build | NOT RUN |
-| Unit tests | Authored for photo-spec and tonal pixel math; NOT RUN |
-| Instrumentation tests | NOT RUN |
+| Unit tests | Authored for photo-spec, tonal pixel math, design-layer schema, typography, path parsing, group transforms, snapping, ordering and project-recipe history; NOT RUN |
+| Instrumentation tests | Project save/reopen regression authored; NOT RUN |
 | Emulator/device test | NOT RUN |
 | Airplane-mode runtime test | NOT RUN |
 | Memory and latency profiling | NOT RUN |
