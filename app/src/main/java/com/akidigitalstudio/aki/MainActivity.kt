@@ -30,6 +30,9 @@ import kotlin.math.sqrt
 class MainActivity : Activity() {
     private lateinit var preview: ImageView
     private lateinit var guideOverlay: GuideOverlayView
+    private lateinit var maskOverlay: ManualMaskView
+    private var backgroundReplaceEnabled = false
+    private var backgroundColor = android.graphics.Color.WHITE
     private lateinit var status: TextView
     private var sourceUri: Uri? = null
     private var previewBitmap: Bitmap? = null
@@ -88,6 +91,8 @@ class MainActivity : Activity() {
         val previewFrame = FrameLayout(this).apply {
             addView(preview, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             addView(guideOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            maskOverlay = ManualMaskView(this)
+            addView(maskOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
         page.addView(previewFrame, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, dp(320)
@@ -123,6 +128,10 @@ class MainActivity : Activity() {
         val row6 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         row6.addView(actionButton(if (english) "Photo quality" else "የፎቶ ጥራት") { assessPhotoQuality() }, weighted())
         page.addView(row6)
+
+        val row7 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        row7.addView(actionButton(if (english) "Manual background mask" else "በእጅ የጀርባ ማስክ") { configureManualMask() }, weighted())
+        page.addView(row7)
 
         val language = Button(this).apply {
             text = if (english) "አማርኛ" else "English"
@@ -206,6 +215,12 @@ class MainActivity : Activity() {
                 val cropped = ImageEditorEngine.cropCenter(image, ratio, cropHorizontal, cropVertical)
                 image.recycle()
                 image = cropped
+            }
+            if (backgroundReplaceEnabled) {
+                val mask = maskOverlay.renderMask(image.width, image.height)
+                val replaced = try { BackgroundReplacementEngine.replaceSolid(image, mask, backgroundColor) } finally { mask.recycle() }
+                image.recycle()
+                image = replaced
             }
             if (monochrome) {
                 val filtered = ImageEditorEngine.monochrome(image)
@@ -401,6 +416,8 @@ class MainActivity : Activity() {
         cropLabel = null
         cropHorizontal = 0.5f
         cropVertical = 0.5f
+        backgroundReplaceEnabled = false
+        if (::maskOverlay.isInitialized) { maskOverlay.clearMask(); maskOverlay.configure(previewBitmap, false) }
     }
 
     private fun rotatePhoto() {
@@ -457,6 +474,57 @@ class MainActivity : Activity() {
         }
     }
 
+
+    private fun configureManualMask() {
+        if (sourceUri == null) return noPhoto()
+        val options = arrayOf(
+            if (english) "Paint foreground protection" else "የፊት ክፍሉን ጠብቅ",
+            if (english) "Erase mask strokes" else "የማስክ ስትሮክ አጥፋ",
+            if (english) "Clear mask" else "ማስክ አጽዳ",
+            if (english) "Choose solid background" else "ጠፍጣፋ የጀርባ ቀለም ምረጥ",
+            if (english) "Disable replacement" else "የጀርባ ለውጥ አቁም"
+        )
+        AlertDialog.Builder(this)
+            .setTitle(if (english) "Manual background editing" else "በእጅ የጀርባ ማስተካከያ")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        maskOverlay.configure(previewBitmap, true, false)
+                        showStatus(if (english) "Paint over the subject to protect it. Unpainted pixels will be replaced. Tap this tool again to finish." else "ሰውየውን ለመጠበቅ በላዩ ላይ ይሳሉ። ያልተሳሉ ፒክስሎች ይተካሉ።")
+                        backgroundReplaceEnabled = true
+                    }
+                    1 -> {
+                        maskOverlay.configure(previewBitmap, true, true)
+                        showStatus(if (english) "Erase unwanted mask strokes." else "የማይፈለጉ የማስክ ስትሮኮችን ያጥፉ።")
+                    }
+                    2 -> {
+                        maskOverlay.clearMask()
+                        backgroundReplaceEnabled = false
+                        maskOverlay.configure(previewBitmap, false)
+                        refreshPreview()
+                    }
+                    3 -> {
+                        val labels = arrayOf("White", "Light gray", "Blue", "Green")
+                        val colors = intArrayOf(0xFFFFFFFF.toInt(),0xFFECEFF1.toInt(),0xFFB3D9F2.toInt(),0xFFB7D7B0.toInt())
+                        AlertDialog.Builder(this)
+                            .setTitle(if (english) "Background color" else "የጀርባ ቀለም")
+                            .setItems(labels) { _, colorIndex ->
+                                backgroundColor = colors[colorIndex]
+                                backgroundReplaceEnabled = true
+                                maskOverlay.configure(previewBitmap, false)
+                                refreshPreview()
+                            }.show()
+                    }
+                    4 -> {
+                        backgroundReplaceEnabled = false
+                        maskOverlay.configure(previewBitmap, false)
+                        refreshPreview()
+                    }
+                }
+            }
+            .setNegativeButton(if (english) "Close" else "ዝጋ", null)
+            .show()
+    }
 
     private fun assessPhotoQuality() {
         if (sourceUri == null) return noPhoto()
@@ -697,6 +765,7 @@ class MainActivity : Activity() {
     private fun renderPreview() {
         preview.setImageBitmap(previewBitmap)
         guideOverlay.configure(previewBitmap, headHeightPercent, eyeLinePercent, guidesVisible)
+        if (::maskOverlay.isInitialized) maskOverlay.configure(previewBitmap, false)
     }
 
     private fun noPhoto() {
