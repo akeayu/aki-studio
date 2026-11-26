@@ -67,13 +67,20 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 - Repeats the current edited image with basic borders and cut marks.
 - PDF is saved under `Documents/Aki Studio`.
 
+### Studio interface
+- Reusable native-view design system with a dark cinematic workspace shell, restrained mint/cyan accents, rounded surfaces, status badges and ripple-enabled action tiles.
+- Main screen groups actions into Workspace, Image Lab, Portrait & ID, Background Lab and Print Studio rather than presenting a long flat button list.
+- Shared page, header, badge, panel, two-column action-grid, action-tile, preview-stage and status components are defined in AkiStudioUi.kt.
+- Amharic-first labels and English toggle are preserved; tool tiles include descriptive text and accessibility content descriptions.
+- No third-party UI dependency or network asset is introduced.
+
 ### Localization
 - Amharic-first UI with English toggle.
 
 ## Known limitations
 
 - No actual Gradle build, APK, emulator installation, or physical-device test has been recorded.
-- No layered project format, per-stroke mask history, autosave/recovery journal, camera capture, batch processing, advanced portrait retouching, or interactive crop handles yet.
+- No layered project format, per-stroke mask history, autosave/recovery journal, camera capture, batch processing, or advanced portrait retouching yet.
 - Tonal adjustment controls are global RGB approximations; no calibrated white balance, colour management, curves, selective adjustment, sharpening, or noise reduction yet.
 - Background segmentation currently depends on a low-confidence border-colour heuristic; manual inspection and correction are required.
 - The optional LiteRT model binary is not present and has not been checksum-verified or licensed into this repository.
@@ -90,7 +97,7 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 | Static source review | Partial; individual source checks only |
 | Synthetic segmentation harness | Reference algorithm checks passed; not Kotlin runtime evidence |
 | Gradle dependency resolution/build | NOT RUN |
-| Unit tests | Authored for photo-spec validation; NOT RUN |
+| Unit tests | Authored for photo-spec and tonal pixel math; NOT RUN |
 | Instrumentation tests | NOT RUN |
 | Emulator/device test | NOT RUN |
 | Airplane-mode runtime test | NOT RUN |
