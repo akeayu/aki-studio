@@ -47,6 +47,10 @@ class MainActivity : Activity() {
     private var showingOriginal = false
     private var rotation = 0f
     private var monochrome = false
+    private var brightness = 0
+    private var contrast = 0
+    private var saturation = 100
+    private var warmth = 0
     private var english = false
     private var cropRatio: Float? = null
     private var outputWidthPx: Int? = null
@@ -161,6 +165,10 @@ class MainActivity : Activity() {
         row10.addView(actionButton(if (english) "Open project" else "ፕሮጀክት ክፈት") { openLocalProject() }, weighted())
         page.addView(row10)
 
+        val row11 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        row11.addView(actionButton(if (english) "Image adjustments" else "የምስል ማስተካከያ") { configureImageAdjustments() }, weighted())
+        page.addView(row11)
+
         val language = Button(this).apply {
             text = if (english) "አማርኛ" else "English"
             setOnClickListener {
@@ -264,6 +272,11 @@ class MainActivity : Activity() {
                 val filtered = ImageEditorEngine.monochrome(image)
                 image.recycle()
                 image = filtered
+            }
+            if (brightness != 0 || contrast != 0 || saturation != 100 || warmth != 0) {
+                val adjusted = ImageAdjustmentEngine.apply(image, brightness, contrast, saturation, warmth)
+                image.recycle()
+                image = adjusted
             }
             val targetW = outputWidthPx
             val targetH = outputHeightPx
@@ -454,6 +467,10 @@ class MainActivity : Activity() {
         cancelSegmentationRequest()
         rotation = 0f
         monochrome = false
+        brightness = 0
+        contrast = 0
+        saturation = 100
+        warmth = 0
         cropRatio = null
         outputWidthPx = null
         outputHeightPx = null
@@ -478,6 +495,51 @@ class MainActivity : Activity() {
         if (sourceUri == null) return noPhoto()
         monochrome = !monochrome
         refreshPreview()
+    }
+
+    private fun configureImageAdjustments() {
+        if (sourceUri == null) return noPhoto()
+        val fields = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+        }
+        fun field(label: String, value: Int): EditText {
+            val input = EditText(this).apply {
+                hint = label
+                inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED
+                setText(value.toString())
+            }
+            fields.addView(input)
+            return input
+        }
+        val brightnessInput = field(if (english) "Brightness (−100 to 100)" else "ብርሃን (−100 እስከ 100)", brightness)
+        val contrastInput = field(if (english) "Contrast (−100 to 100)" else "ንፅፅር (−100 እስከ 100)", contrast)
+        val saturationInput = field(if (english) "Saturation (0 to 200; 100 = unchanged)" else "ቀለም ሙላት (0 እስከ 200፤ 100 = መደበኛ)", saturation)
+        val warmthInput = field(if (english) "Warmth (−100 cool to 100 warm)" else "ሙቀት (−100 ቀዝቃዛ እስከ 100 ሞቃት)", warmth)
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(if (english) "Non-destructive image adjustments" else "የምስል ማስተካከያዎች")
+            .setMessage(if (english) "Values are stored as an edit recipe and re-rendered from the original. They do not repeatedly modify the source." else "እሴቶቹ እንደ ማስተካከያ መመሪያ ይቀመጣሉ፤ ከዋናው ፎቶ እንደገና ይሰራሉ።")
+            .setView(fields)
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Apply" else "ተግብር", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val b = brightnessInput.text.toString().toIntOrNull()
+                val c = contrastInput.text.toString().toIntOrNull()
+                val sat = saturationInput.text.toString().toIntOrNull()
+                val w = warmthInput.text.toString().toIntOrNull()
+                if (b == null || b !in -100..100 || c == null || c !in -100..100 ||
+                    sat == null || sat !in 0..200 || w == null || w !in -100..100) {
+                    showStatus(if (english) "Brightness, contrast and warmth must be −100 to 100; saturation must be 0 to 200." else "ብርሃን፣ ንፅፅርና ሙቀት −100 እስከ 100፤ ቀለም ሙላት 0 እስከ 200 መሆን አለበት።")
+                    return@setOnClickListener
+                }
+                brightness = b; contrast = c; saturation = sat; warmth = w
+                dialog.dismiss()
+                refreshPreview()
+            }
+        }
+        dialog.show()
     }
 
     private fun resetEdits() {
@@ -535,6 +597,10 @@ class MainActivity : Activity() {
     private fun projectSettings(): Map<String, String> = mapOf(
         "rotation" to rotation.toString(),
         "monochrome" to monochrome.toString(),
+        "brightness" to brightness.toString(),
+        "contrast" to contrast.toString(),
+        "saturation" to saturation.toString(),
+        "warmth" to warmth.toString(),
         "cropRatio" to (cropRatio?.toString() ?: ""),
         "outputWidthPx" to (outputWidthPx?.toString() ?: ""),
         "outputHeightPx" to (outputHeightPx?.toString() ?: ""),
@@ -637,6 +703,10 @@ class MainActivity : Activity() {
             val values = data.values
             rotation = values["rotation"]?.toFloatOrNull()?.takeIf { it.isFinite() }?.rem(360f) ?: 0f
             monochrome = values["monochrome"].toBoolean()
+            brightness = values["brightness"]?.toIntOrNull()?.coerceIn(-100, 100) ?: 0
+            contrast = values["contrast"]?.toIntOrNull()?.coerceIn(-100, 100) ?: 0
+            saturation = values["saturation"]?.toIntOrNull()?.coerceIn(0, 200) ?: 100
+            warmth = values["warmth"]?.toIntOrNull()?.coerceIn(-100, 100) ?: 0
             cropRatio = values["cropRatio"]?.toFloatOrNull()?.takeIf { it.isFinite() && it > 0f }
             outputWidthPx = values["outputWidthPx"]?.toIntOrNull()
             outputHeightPx = values["outputHeightPx"]?.toIntOrNull()
