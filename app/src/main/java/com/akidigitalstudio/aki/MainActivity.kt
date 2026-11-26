@@ -561,10 +561,68 @@ class MainActivity : Activity() {
             "${summary.name} — $date"
         }.toTypedArray()
         AlertDialog.Builder(this)
-            .setTitle(if (english) "Open local project" else "የተቀመጠ ፕሮጀክት ክፈት")
-            .setItems(labels) { _, which -> restoreLocalProject(projects[which]) }
+            .setTitle(if (english) "Manage local projects" else "የተቀመጡ ፕሮጀክቶችን ያስተዳድሩ")
+            .setItems(labels) { _, which -> showProjectActions(projects[which]) }
             .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
             .show()
+    }
+
+    private fun showProjectActions(summary: LocalProjectStore.ProjectSummary) {
+        val actions = arrayOf(
+            if (english) "Open" else "ክፈት",
+            if (english) "Duplicate" else "ኮፒ አድርግ",
+            if (english) "Rename" else "ስም ቀይር",
+            if (english) "Delete" else "ሰርዝ"
+        )
+        AlertDialog.Builder(this)
+            .setTitle(summary.name)
+            .setItems(actions) { _, which ->
+                when (which) {
+                    0 -> restoreLocalProject(summary)
+                    1 -> runCatching { LocalProjectStore.duplicate(filesDir, summary) }
+                        .onSuccess { showStatus(if (english) "Project duplicated: ${it.name}" else "ፕሮጀክቱ ተባዝቷል፦ ${it.name}") }
+                        .onFailure { showStatus(if (english) "Duplicate failed: ${it.message}" else "ኮፒ ማድረግ አልተሳካም።") }
+                    2 -> renameLocalProject(summary)
+                    3 -> AlertDialog.Builder(this)
+                        .setTitle(if (english) "Delete project?" else "ፕሮጀክቱ ይሰረዝ?")
+                        .setMessage(if (english) "This permanently deletes the private project copy and its edit settings. It does not delete the original image outside Aki Studio." else "ይህ በመተግበሪያው ውስጥ ያለውን የፕሮጀክት ቅጂና ቅንብሮቹን በቋሚነት ይሰርዛል። ከAki Studio ውጭ ያለውን ዋና ፎቶ አይሰርዝም።")
+                        .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+                        .setPositiveButton(if (english) "Delete" else "ሰርዝ") { _, _ ->
+                            val deleted = LocalProjectStore.delete(summary)
+                            showStatus(if (deleted) {
+                                if (english) "Project deleted from this device." else "ፕሮጀክቱ ከዚህ መሣሪያ ተሰርዟል።"
+                            } else {
+                                if (english) "Project could not be deleted." else "ፕሮጀክቱን መሰረዝ አልተቻለም።"
+                            })
+                        }.show()
+                }
+            }
+            .setNegativeButton(if (english) "Back" else "ተመለስ", null)
+            .show()
+    }
+
+    private fun renameLocalProject(summary: LocalProjectStore.ProjectSummary) {
+        val input = EditText(this).apply { setSingleLine(true); setText(summary.name) }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(if (english) "Rename project" else "የፕሮጀክት ስም ቀይር")
+            .setView(input)
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Save" else "አስቀምጥ", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val name = input.text.toString().trim()
+                if (name.isBlank() || name.length > 60) {
+                    showStatus(if (english) "Project name must contain 1–60 characters." else "የፕሮጀክት ስም 1–60 ፊደል መሆን አለበት።")
+                    return@setOnClickListener
+                }
+                runCatching { LocalProjectStore.rename(summary, name) }
+                    .onSuccess { showStatus(if (english) "Project renamed: ${it.name}" else "የፕሮጀክቱ ስም ተቀይሯል፦ ${it.name}") }
+                    .onFailure { showStatus(if (english) "Rename failed: ${it.message}" else "ስም መቀየር አልተሳካም።") }
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
     }
 
     private fun restoreLocalProject(summary: LocalProjectStore.ProjectSummary) {
