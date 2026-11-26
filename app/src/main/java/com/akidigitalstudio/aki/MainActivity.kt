@@ -512,6 +512,7 @@ class MainActivity : Activity() {
         val isPng = format == Bitmap.CompressFormat.PNG
         val extension = if (isPng) "png" else "jpg"
         val mimeType = if (isPng) "image/png" else "image/jpeg"
+        val label = if (isPng) "PNG" else "JPEG"
         val quality = if (isPng) 100 else 94
         try {
             val output = buildEditedBitmap(EXPORT_MAX_EDGE)
