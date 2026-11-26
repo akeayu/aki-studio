@@ -409,6 +409,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle(if (english) "Crop position" else "የቁረጥ ቦታ")
             .setItems(positions) { _, which ->
+                cropRectNormalized = null
                 cropHorizontal = alignments[which].first
                 cropVertical = alignments[which].second
                 refreshPreview()
