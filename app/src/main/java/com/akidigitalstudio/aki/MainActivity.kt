@@ -217,8 +217,8 @@ class MainActivity : Activity() {
     private fun chooseIdPreset() {
         if (sourceUri == null) return noPhoto()
         val labels = arrayOf(
-            "3.5 × 4.5 cm — 35 × 45 mm (300 DPI)",
-            "2 × 2 inch — US passport (300 DPI)",
+            "3.5 × 4.5 cm — 35 × 45 mm (413 × 531 px @ 300 DPI)",
+            "2 × 2 inch — US passport (600 × 600 px @ 300 DPI)",
             if (english) "Clear crop preset" else "የቁረጥ መጠንን አጽዳ"
         )
         AlertDialog.Builder(this)
@@ -290,9 +290,10 @@ class MainActivity : Activity() {
     }
 
     private fun saveCopy() {
-        val uri = sourceUri ?: return noPhoto()
+        if (sourceUri == null) return noPhoto()
+        var output: Bitmap? = null
         try {
-            val output = buildEditedBitmap(EXPORT_MAX_EDGE)
+            output = buildEditedBitmap(EXPORT_MAX_EDGE)
             val values = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, "aki_${System.currentTimeMillis()}.jpg")
                 put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
@@ -314,11 +315,11 @@ class MainActivity : Activity() {
             } catch (error: Exception) {
                 contentResolver.delete(destination, null, null)
                 throw error
-            } finally {
-                output.recycle()
             }
         } catch (error: Exception) {
             showStatus(if (english) "Save failed: ${error.message ?: "unknown error"}" else "ማስቀመጥ አልተሳካም።")
+        } finally {
+            output?.recycle()
         }
     }
 
