@@ -28,6 +28,7 @@ This directory contains controlled product, architecture, governance, and verifi
 - `implementation/AKIDS-A3-DIRECT-MANIPULATION-001-v0.1.0.md` — touch selection, move, corner resize, rotation, center snapping and layer schema compatibility.
 - `implementation/AKIDS-A3-DESIGN-ADVANCED-001-v0.1.0.md` — multilingual typography controls, Ethiopic system fallback, editable Bézier paths, group transforms, object snapping, drag-reorder layer panel, and regression-test scope.
 - `implementation/AKIDS-A3-ADAPTIVE-UI-001-v0.1.0.md` — window-aware compact/medium/expanded layouts, orientation and font-scale adaptation, responsive tool cards, adaptive preview sizing, reusable widget primitives, and verification limits.
+- `implementation/AKIDS-A3-WORKSPACE-SHELL-001-v0.1.0.md` — persistent workspace filtering/navigation, contextual command strip, and collapsible selection-aware inspector.
 
 ## Controlled baseline records
 
