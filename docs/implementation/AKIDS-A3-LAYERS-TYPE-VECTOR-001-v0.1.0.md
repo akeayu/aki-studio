@@ -6,9 +6,9 @@
 
 ## Architecture
 - One versioned `DesignLayerDocument` stores up to 30 editable objects in normalized canvas coordinates.
-- Supported objects: text, rectangle, ellipse and line. Each stores identity, name, z-order (list order), geometry, fill/stroke, typography, visibility, lock and opacity.
+- Supported objects: text, rectangle, ellipse and line. Each stores identity, name, z-order (list order), geometry, fill/stroke colors and width, font scale, bold/italic styling, visibility, lock and opacity.
 - `DesignLayerRenderer` composites visible objects into a fresh ARGB bitmap on the CPU. It does not mutate the source image.
-- Layer data is serialized as bounded JSON in the existing private project manifest. Existing schema-v1 projects without the optional field load with an empty design.
+- Layer data is serialized as a bounded, versioned Base64 binary payload in the existing private project manifest. Existing schema-v1 projects without the optional field load with an empty design.
 - Layer mutations participate in the existing recipe undo/redo snapshots.
 
 ## Editing capabilities
