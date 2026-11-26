@@ -795,12 +795,16 @@ class MainActivity : Activity() {
         val width = EditText(this).apply { hint = "Width (1–100%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.width * 100).toInt().toString()) }
         val height = EditText(this).apply { hint = "Height (1–100%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.height * 100).toInt().toString()) }
         val opacity = EditText(this).apply { hint = "Opacity (0–100%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.opacity * 100).toInt().toString()) }
+        val fillColor = EditText(this).apply { hint = "Fill/text color (#RRGGBB)"; setSingleLine(true); setText(String.format("#%06X", 0xFFFFFF and layer.fillColor)) }
+        val strokeColor = EditText(this).apply { hint = "Stroke color (#RRGGBB)"; setSingleLine(true); setText(String.format("#%06X", 0xFFFFFF and layer.strokeColor)) }
+        val fontScale = EditText(this).apply { hint = "Text size (1–20% of canvas)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.fontScale * 100).toInt().toString()) }
+        val strokeWidth = EditText(this).apply { hint = "Stroke width (0–8% of canvas)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.strokeWidth * 100).toInt().toString()) }
         val visible = CheckBox(this).apply { text = if (english) "Visible" else "የሚታይ"; isChecked = layer.visible }
         val locked = CheckBox(this).apply { text = if (english) "Lock layer" else "ንብርብሩን ቆልፍ"; isChecked = layer.locked }
         val fields = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(8), dp(20), 0)
-            listOf(name, x, y, width, height, opacity, visible, locked).forEach { addView(it) }
+            listOf(name, x, y, width, height, opacity, fillColor, strokeColor, fontScale, strokeWidth, visible, locked).forEach { addView(it) }
         }
         val dialog = AlertDialog.Builder(this)
             .setTitle(layer.name)
@@ -817,16 +821,24 @@ class MainActivity : Activity() {
                 val pw = width.text.toString().toIntOrNull()
                 val ph = height.text.toString().toIntOrNull()
                 val po = opacity.text.toString().toIntOrNull()
+                val font = fontScale.text.toString().toIntOrNull()
+                val stroke = strokeWidth.text.toString().toIntOrNull()
+                val fill = runCatching { android.graphics.Color.parseColor(fillColor.text.toString().trim()) }.getOrNull()
+                val outline = runCatching { android.graphics.Color.parseColor(strokeColor.text.toString().trim()) }.getOrNull()
                 if (nx.isBlank() || nx.length > 48 || px == null || px !in 0..100 ||
                     py == null || py !in 0..100 || pw == null || pw !in 1..100 ||
-                    ph == null || ph !in 1..100 || po == null || po !in 0..100) {
-                    showStatus(if (english) "Layer properties are outside their allowed ranges." else "የንብርብር ባህሪያት ከተፈቀደው ክልል ውጭ ናቸው።")
+                    ph == null || ph !in 1..100 || po == null || po !in 0..100 ||
+                    font == null || font !in 1..20 || stroke == null || stroke !in 0..8 ||
+                    fill == null || outline == null) {
+                    showStatus(if (english) "Layer properties or colors are outside their allowed ranges." else "የንብርብር ባህሪያት ወይም ቀለሞች ትክክል አይደሉም።")
                     return@setOnClickListener
                 }
                 designLayers[index] = layer.copy(
                     name = nx, x = px / 100f, y = py / 100f,
                     width = pw / 100f, height = ph / 100f,
-                    opacity = po / 100f, visible = visible.isChecked, locked = locked.isChecked
+                    opacity = po / 100f, fillColor = fill, strokeColor = outline,
+                    fontScale = font / 100f, strokeWidth = stroke / 100f,
+                    visible = visible.isChecked, locked = locked.isChecked
                 ).validated()
                 dialog.dismiss()
                 refreshPreview()
