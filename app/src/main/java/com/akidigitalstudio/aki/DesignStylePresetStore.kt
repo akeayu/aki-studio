@@ -74,7 +74,7 @@ data class DesignStylePreset(
                 .filterNot { it.optString("name").equals(preset.name, true) }
             if (existing.size >= 12) return false
             val updated = JSONArray()
-            existing.forEach(updated::put)
+            existing.forEach { updated.put(it) }
             updated.put(preset.toJson())
             return prefs.edit().putString(KEY, updated.toString()).commit()
         }
