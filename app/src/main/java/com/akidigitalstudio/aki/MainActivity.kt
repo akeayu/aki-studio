@@ -78,6 +78,9 @@ class MainActivity : Activity() {
     private val designLayers = mutableListOf<DesignLayer>()
     private var suppressHistoryRecording = false
     private var activeWorkspace = "All"
+    private var inspectorPanel: View? = null
+    private var inspectorSummary: TextView? = null
+    private var inspectorExpanded = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,7 +115,7 @@ class MainActivity : Activity() {
         guideOverlay = GuideOverlayView(this)
         maskOverlay = ManualMaskView(this)
         designOverlay = DesignLayerOverlayView(this).apply {
-            onSelectionChanged = { selectedDesignLayerId = it }
+            onSelectionChanged = { selectedDesignLayerId = it; updateInspectorSummary() }
             onCommit = { updated ->
                 val index = designLayers.indexOfFirst { it.id == updated.id }
                 if (index >= 0) {
@@ -136,8 +139,30 @@ class MainActivity : Activity() {
         status = AkiStudioUi.statusText(this)
         status.text = if (english) "READY  ·  Local processing enabled" else "ዝግጁ  ·  በመሣሪያው ላይ የሚሠራ"
         page.addView(status, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            bottomMargin = dp(14)
+            bottomMargin = dp(10)
         })
+
+        val inspectorContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(AkiStudioUi.sectionHeader(
+                this@MainActivity,
+                if (english) "Inspector" else "የንብርብር መቆጣጠሪያ",
+                if (english) "Context for the current canvas selection" else "ለአሁኑ የካንቫስ ምርጫ መረጃ"
+            ))
+            inspectorSummary = TextView(this@MainActivity).apply {
+                textSize = 11f
+                setTextColor(AkiStudioUi.MUTED)
+                setPadding(0, dp(8), 0, 0)
+            }
+            addView(inspectorSummary)
+        }
+        inspectorPanel = AkiStudioUi.card(this, inspectorContent)
+        inspectorExpanded = profile.widthClass == WindowWidthClass.EXPANDED && profile.heightDp >= 600
+        inspectorPanel?.visibility = if (inspectorExpanded) View.VISIBLE else View.GONE
+        page.addView(inspectorPanel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = dp(12)
+        })
+        updateInspectorSummary()
 
         val panelHost = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val primaryPanelColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -241,7 +266,8 @@ class MainActivity : Activity() {
                     (if (english) "↶ Undo" else "↶ መልስ") to { undoEdit() },
                     (if (english) "↷ Redo" else "↷ ድገም") to { redoEdit() },
                     (if (english) "◉ Compare" else "◉ አወዳድር") to { toggleBeforeAfter() },
-                    (if (english) "⇧ Export" else "⇧ አውጣ") to { saveCopy() }
+                    (if (english) "⇧ Export" else "⇧ አውጣ") to { saveCopy() },
+                    (if (english) "Inspector" else "መቆጣጠሪያ") to { toggleInspectorPanel() }
                 )
                 commands.forEach { (label, callback) ->
                     addView(AkiStudioUi.toolbarButton(this@MainActivity, label, callback),
@@ -1959,7 +1985,24 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun toggleInspectorPanel() {
+        inspectorExpanded = !inspectorExpanded
+        inspectorPanel?.visibility = if (inspectorExpanded) View.VISIBLE else View.GONE
+    }
+
+    private fun updateInspectorSummary() {
+        val selected = selectedDesignLayerId
+        inspectorSummary?.text = if (english) {
+            if (selected == null) "No design layer selected · ${designLayers.size} layer(s) in this document"
+            else "Selected layer: ${selected.take(12)} · ${designLayers.size} layer(s) · edits remain local"
+        } else {
+            if (selected == null) "ምንም የዲዛይን ንብርብር አልተመረጠም · ${designLayers.size} ንብርብር"
+            else "የተመረጠው: ${selected.take(12)} · ${designLayers.size} ንብርብር · ለውጦች በመሣሪያው ላይ ብቻ"
+        }
+    }
+
     private fun renderPreview() {
+        updateInspectorSummary()
         preview.setImageBitmap(if (showingOriginal) originalPreviewBitmap else (autoPreviewBitmap ?: previewBitmap))
         guideOverlay.configure(if (showingOriginal) originalPreviewBitmap else previewBitmap, headHeightPercent, eyeLinePercent, guidesVisible && !showingOriginal)
         if (::maskOverlay.isInitialized) maskOverlay.configure(previewBitmap, false)
