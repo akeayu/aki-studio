@@ -21,6 +21,7 @@ This directory contains controlled product, architecture, governance, and verifi
 - `implementation/AKIDS-A3-EXPORT-FORMATS-001-v0.1.0.md` — JPEG/PNG local export, MediaStore publication safety, and metadata limitations.
 - `implementation/AKIDS-A3-PROJECTS-001-v0.1.0.md` — private offline editable projects, original-image preservation, edit recipes, masks, and project management operations.
 - `implementation/AKIDS-A3-ADJUST-001-v0.1.0.md` — local CPU-only brightness, contrast, saturation, and warmth controls with persisted non-destructive edit settings.
+- `implementation/AKIDS-A3-CROP-NAMING-001-v0.1.0.md` — interactive crop selection, project crop persistence, user-supplied export names, and reusable local filename patterns.
 
 ## Controlled baseline records
 
