@@ -150,17 +150,19 @@ class MainActivity : Activity() {
                 if (english) "Inspector" else "የንብርብር መቆጣጠሪያ",
                 if (english) "Context for the current canvas selection" else "ለአሁኑ የካንቫስ ምርጫ መረጃ"
             ))
-            inspectorSummary = TextView(this@MainActivity).apply {
+            val summaryView = TextView(this@MainActivity).apply {
                 textSize = 11f
                 setTextColor(AkiStudioUi.MUTED)
                 setPadding(0, dp(8), 0, 0)
             }
-            addView(inspectorSummary)
+            inspectorSummary = summaryView
+            addView(summaryView)
         }
-        inspectorPanel = AkiStudioUi.card(this, inspectorContent)
+        val inspectorCard = AkiStudioUi.card(this, inspectorContent)
+        inspectorPanel = inspectorCard
         inspectorExpanded = profile.widthClass == WindowWidthClass.EXPANDED && profile.heightDp >= 600
-        inspectorPanel?.visibility = if (inspectorExpanded) View.VISIBLE else View.GONE
-        page.addView(inspectorPanel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+        inspectorCard.visibility = if (inspectorExpanded) View.VISIBLE else View.GONE
+        page.addView(inspectorCard, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             bottomMargin = dp(12)
         })
         updateInspectorSummary()
