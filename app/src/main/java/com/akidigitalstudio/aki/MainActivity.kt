@@ -103,6 +103,7 @@ class MainActivity : Activity() {
         guideOverlay = GuideOverlayView(this)
         maskOverlay = ManualMaskView(this)
         designOverlay = DesignLayerOverlayView(this).apply {
+            onSelectionChanged = { selectedDesignLayerId = it }
             onCommit = { updated ->
                 val index = designLayers.indexOfFirst { it.id == updated.id }
                 if (index >= 0) {
