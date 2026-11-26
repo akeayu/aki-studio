@@ -424,6 +424,7 @@ class MainActivity : Activity() {
     }
 
     private fun refreshPreview() {
+        cancelSegmentationRequest()
         // Geometry edits invalidate a mask estimated from the previous preview.
         if (autoMaskBitmap != null) {
             autoMaskBitmap?.recycle(); autoMaskBitmap = null
@@ -443,6 +444,7 @@ class MainActivity : Activity() {
     }
 
     private fun clearEdits() {
+        cancelSegmentationRequest()
         rotation = 0f
         monochrome = false
         cropRatio = null
@@ -570,6 +572,12 @@ class MainActivity : Activity() {
                     }
                 }
             }.show()
+    }
+
+    private fun cancelSegmentationRequest() {
+        segmentationRequestId += 1
+        segmentationFuture?.cancel(true)
+        segmentationFuture = null
     }
 
     private fun runLocalForegroundEstimate() {
