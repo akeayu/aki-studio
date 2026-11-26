@@ -58,11 +58,11 @@ Preview decode is bounded to 1,800 pixels on the longest edge. General export de
 4. Test image selection, rotation, monochrome, reset, and save-copy.
 5. Test all nine crop alignments against portrait and landscape source images.
 6. Test large image and low-memory behavior on a 3 GB physical-RAM device.
-6. Verify original source digest remains unchanged.
-7. Verify exported JPEG dimensions, orientation, decoding and metadata behavior.
-8. Run core workflow in airplane mode and inspect app-initiated network traffic.
-9. Test Amharic glyph rendering and screen-reader labels.
-10. Record exact build toolchain, APK hash, device SKU, OS build and test evidence.
+7. Verify original source digest remains unchanged.
+8. Verify exported JPEG dimensions, orientation, decoding and metadata behavior.
+9. Run core workflow in airplane mode and inspect app-initiated network traffic.
+10. Test Amharic glyph rendering and screen-reader labels.
+11. Record exact build toolchain, APK hash, device SKU, OS build and test evidence.
 
 ## 6. Stage status
 
