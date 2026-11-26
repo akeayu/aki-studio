@@ -37,6 +37,8 @@ class MainActivity : Activity() {
     private var resizeMaxWidthPx: Int? = null
     private var resizeMaxHeightPx: Int? = null
     private var cropLabel: String? = null
+    private var cropHorizontal = 0.5f
+    private var cropVertical = 0.5f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -92,6 +94,7 @@ class MainActivity : Activity() {
 
         val row3 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         row3.addView(actionButton(if (english) "B&W" else "ጥቁር ነጭ") { toggleMonochrome() }, weighted())
+        row3.addView(actionButton(if (english) "Position" else "ቦታ") { chooseCropPosition() }, weighted())
         row3.addView(actionButton(if (english) "Reset" else "መልስ") { resetEdits() }, weighted())
         row3.addView(actionButton(if (english) "Save copy" else "ቅጂ አስቀምጥ") { saveCopy() }, weighted())
         page.addView(row3)
@@ -175,7 +178,7 @@ class MainActivity : Activity() {
                 image = rotated
             }
             cropRatio?.let { ratio ->
-                val cropped = ImageEditorEngine.cropCenter(image, ratio)
+                val cropped = ImageEditorEngine.cropCenter(image, ratio, cropHorizontal, cropVertical)
                 image.recycle()
                 image = cropped
             }
@@ -220,11 +223,45 @@ class MainActivity : Activity() {
             .setTitle(if (english) "Center crop" else "መሃል ላይ መቁረጥ")
             .setItems(labels) { _, which ->
                 cropRatio = ratios[which]
+                if (which == 0) { cropHorizontal = 0.5f; cropVertical = 0.5f }
                 outputWidthPx = null
                 outputHeightPx = null
                 resizeMaxWidthPx = null
                 resizeMaxHeightPx = null
                 cropLabel = if (which == 0) null else labels[which]
+                refreshPreview()
+            }
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .show()
+    }
+
+    private fun chooseCropPosition() {
+        if (sourceUri == null) return noPhoto()
+        if (cropRatio == null) {
+            showStatus(if (english) "Choose a crop ratio first." else "መጀመሪያ የቁረጥ መጠን ይምረጡ።")
+            return
+        }
+        val positions = arrayOf(
+            if (english) "Top left" else "ላይ ግራ",
+            if (english) "Top center" else "ላይ መሃል",
+            if (english) "Top right" else "ላይ ቀኝ",
+            if (english) "Middle left" else "መሃል ግራ",
+            if (english) "Center" else "መሃል",
+            if (english) "Middle right" else "መሃል ቀኝ",
+            if (english) "Bottom left" else "ታች ግራ",
+            if (english) "Bottom center" else "ታች መሃል",
+            if (english) "Bottom right" else "ታች ቀኝ"
+        )
+        val alignments = arrayOf(
+            0f to 0f, 0.5f to 0f, 1f to 0f,
+            0f to 0.5f, 0.5f to 0.5f, 1f to 0.5f,
+            0f to 1f, 0.5f to 1f, 1f to 1f
+        )
+        AlertDialog.Builder(this)
+            .setTitle(if (english) "Crop position" else "የቁረጥ ቦታ")
+            .setItems(positions) { _, which ->
+                cropHorizontal = alignments[which].first
+                cropVertical = alignments[which].second
                 refreshPreview()
             }
             .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
@@ -337,6 +374,8 @@ class MainActivity : Activity() {
         resizeMaxWidthPx = null
         resizeMaxHeightPx = null
         cropLabel = null
+        cropHorizontal = 0.5f
+        cropVertical = 0.5f
     }
 
     private fun rotatePhoto() {
