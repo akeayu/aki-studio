@@ -12,6 +12,7 @@ This directory contains controlled product, architecture, governance, and verifi
 - `architecture/` — technical architecture, interfaces, privacy boundaries, and platform assessments.
 - `security/` — threat models, data handling, dependency and supply-chain assessments.
 - `verification/` — test strategy, acceptance criteria, and evidence.
+- `implementation/` — stage-gated implementation records and scope boundaries.
 
 ## Controlled baseline records
 
@@ -40,9 +41,10 @@ Distinguish original approved source artifacts, archival transcriptions, and reg
 - Record subsequent changes as controlled addenda or new versions.
 - Preserve prior versions and approval records.
 - Distinguish Owner approval from technical verification.
-- Approval of A1 or an individual A2 architecture decision does not authorize implementation, deployment, or expenditure.
-- Keep A3 implementation, A4 verification, and A5 deployment/release separately gated.
+- A3 implementation is authorized only for the local-only Android MVP recorded in AKIDS-A3-IMPL-LOCAL-001.
+- This A3 authorization excludes network/cloud runtime services, merge to main, deployment/release, purchases, subscriptions, and other expenditure.
+- Keep A4 verification and A5 deployment/release separately gated.
 
 ## Current stage boundary
 
-A1 is approved and closed. The IROKA integration direction in A2-ADR-001 is approved. Full A2 technical reconciliation remains incomplete. A3 implementation, A4 verification, A5 deployment, and expenditure are not authorized by these records.
+A1 is approved and closed. The IROKA integration direction in A2-ADR-001 is approved. Full A2 technical reconciliation remains incomplete. A3 is authorized only for the local-only Android MVP. A4 verification has not started; A5 deployment/release and expenditure remain unauthorized.
