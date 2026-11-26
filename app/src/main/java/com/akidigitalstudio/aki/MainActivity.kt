@@ -612,8 +612,15 @@ class MainActivity : Activity() {
                         backgroundReplaceEnabled = true
                     }
                     1 -> {
+                        if (autoMaskBitmap != null) {
+                            maskOverlay.setBaseMask(autoMaskBitmap)
+                            autoMaskBitmap?.recycle(); autoMaskBitmap = null
+                            autoPreviewBitmap?.recycle(); autoPreviewBitmap = null
+                        }
+                        backgroundReplaceEnabled = true
+                        preview.setImageBitmap(previewBitmap)
                         maskOverlay.configure(previewBitmap, true, true)
-                        showStatus(if (english) "Erase unwanted mask strokes." else "የማይፈለጉ የማስክ ስትሮኮችን ያጥፉ።")
+                        showStatus(if (english) "Erase unwanted mask regions." else "የማይፈለጉ የማስክ ክፍሎችን ያጥፉ።")
                     }
                     2 -> {
                         maskOverlay.clearMask()
