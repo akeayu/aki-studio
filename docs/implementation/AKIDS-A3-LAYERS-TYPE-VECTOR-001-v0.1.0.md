@@ -5,8 +5,8 @@
 **Scope:** Layer document foundation, typography and vector primitives
 
 ## Architecture
-- One versioned `DesignLayerDocument` stores up to 30 editable objects in normalized canvas coordinates.
-- Supported objects: text, rectangle, ellipse and line. Each stores identity, name, z-order (list order), geometry, fill/stroke colors and width, font scale, bold/italic styling, visibility, lock and opacity.
+- A versioned `DesignLayerDocument` (schema v2; decoder remains compatible with v1) stores up to 30 editable objects in normalized canvas coordinates.
+- Supported objects: text, rectangle, ellipse and line. Each stores identity, name, z-order (list order), geometry, fill/stroke colors and width, font scale, bold/italic styling, rotation, visibility, lock and opacity.
 - `DesignLayerRenderer` composites visible objects into a fresh ARGB bitmap on the CPU. It does not mutate the source image.
 - Layer data is serialized as a bounded, versioned Base64 binary payload in the existing private project manifest. Existing schema-v1 projects without the optional field load with an empty design.
 - Layer mutations participate in the existing recipe undo/redo snapshots.
@@ -20,7 +20,7 @@
 
 ## Limits
 - Vector primitives are resolution-independent in the document, but export rasterizes them into the output bitmap.
-- No Bézier paths, SVG import, gradients, text shaping controls, font library, kerning, rotation handles, multi-select, snapping, or arbitrary path editing in this increment.
+- No Bézier paths, SVG import, gradients, advanced text shaping controls, font library, kerning, multi-select, object-to-object snapping, or arbitrary path editing in this increment. Basic rotation handles and canvas-center snapping are now available in the direct-manipulation increment.
 - Font rendering uses Android system sans-serif; Amharic glyph support depends on device fonts.
 - Maximum 30 objects, 500 characters per text object, 8 rendered lines.
 - The renderer is CPU-based and synchronous with the existing preview/export pipeline.
