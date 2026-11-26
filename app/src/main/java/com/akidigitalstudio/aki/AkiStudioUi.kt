@@ -265,6 +265,52 @@ object AkiStudioUi {
             })
         }
 
+    /** Compact contextual command used by the persistent workspace toolbar. */
+    fun toolbarButton(context: Context, label: String, onClick: () -> Unit): TextView =
+        TextView(context).apply {
+            text = label
+            textSize = 11f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(MINT)
+            background = ripple(context, SURFACE_RAISED, 0x3375E0C0)
+            setPadding(dp(context, 14), 0, dp(context, 14), 0)
+            minWidth = dp(context, 64)
+            minimumHeight = dp(context, 44)
+            isClickable = true
+            isFocusable = true
+            contentDescription = label
+            setOnClickListener { onClick() }
+        }
+
+    /** Workspace navigation chip with explicit selected-state styling. */
+    fun navigationChip(context: Context, label: String, selected: Boolean, onClick: () -> Unit): TextView =
+        TextView(context).apply {
+            text = label
+            textSize = 11f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(dp(context, 13), 0, dp(context, 13), 0)
+            minimumHeight = dp(context, 38)
+            minWidth = dp(context, 48)
+            isClickable = true
+            isFocusable = true
+            contentDescription = label
+            setNavigationChipSelected(this, selected)
+            setOnClickListener { onClick() }
+        }
+
+    fun setNavigationChipSelected(view: TextView, selected: Boolean) {
+        view.isSelected = selected
+        view.setTextColor(if (selected) INK else MUTED)
+        view.background = rounded(
+            view.context,
+            if (selected) MINT else SURFACE_RAISED,
+            if (selected) MINT else OUTLINE,
+            19f
+        )
+    }
+
     fun previewContainer(context: Context) = android.widget.FrameLayout(context).apply {
         background = rounded(context, SURFACE_RAISED, OUTLINE, 22f)
         clipToOutline = true
