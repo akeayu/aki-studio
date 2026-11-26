@@ -482,23 +482,43 @@ class MainActivity : Activity() {
 
     private fun saveCopy() {
         if (sourceUri == null) return noPhoto()
-        val dimensions = (previewBitmap?.width ?: 0).toString() + " × " + (previewBitmap?.height ?: 0) + " px"
+        val formats = arrayOf(
+            if (english) "JPEG — smaller photographic file" else "JPEG — የታመቀ የፎቶ ፋይል",
+            if (english) "PNG — lossless, supports transparency" else "PNG — ጥራት የማይቀንስ፣ ግልጽነትን ይደግፋል"
+        )
         AlertDialog.Builder(this)
-            .setTitle(if (english) "Confirm export" else "የፎቶ ማስቀመጥን ያረጋግጡ")
-            .setMessage(if (english) "Save a new JPEG copy ($dimensions) to Pictures/Aki Studio? The original file will not be changed." else "አዲስ JPEG ቅጂ ($dimensions) በPictures/Aki Studio ይቀመጥ? ዋናው ፋይል አይቀየርም።")
+            .setTitle(if (english) "Choose export format" else "የማስቀመጫ ቅርጸት ይምረጡ")
+            .setItems(formats) { _, which ->
+                confirmSaveCopy(if (which == 1) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG)
+            }
             .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
-            .setPositiveButton(if (english) "Save copy" else "ቅጂ አስቀምጥ") { _, _ -> performSaveCopy() }
             .show()
     }
 
-    private fun performSaveCopy() {
+    private fun confirmSaveCopy(format: Bitmap.CompressFormat) {
+        val dimensions = (previewBitmap?.width ?: 0).toString() + " × " + (previewBitmap?.height ?: 0) + " px"
+        val isPng = format == Bitmap.CompressFormat.PNG
+        val label = if (isPng) "PNG" else "JPEG"
+        AlertDialog.Builder(this)
+            .setTitle(if (english) "Confirm export" else "የፎቶ ማስቀመጥን ያረጋግጡ")
+            .setMessage(if (english) "Save a new $label copy ($dimensions) to Pictures/Aki Studio? The original file will not be changed." else "አዲስ $label ቅጂ ($dimensions) በPictures/Aki Studio ይቀመጥ? ዋናው ፋይል አይቀየርም።")
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Save copy" else "ቅጂ አስቀምጥ") { _, _ -> performSaveCopy(format) }
+            .show()
+    }
+
+    private fun performSaveCopy(format: Bitmap.CompressFormat) {
         if (sourceUri == null) return noPhoto()
+        val isPng = format == Bitmap.CompressFormat.PNG
+        val extension = if (isPng) "png" else "jpg"
+        val mimeType = if (isPng) "image/png" else "image/jpeg"
+        val quality = if (isPng) 100 else 94
         try {
             val output = buildEditedBitmap(EXPORT_MAX_EDGE)
             try {
                 val values = ContentValues().apply {
-                    put(MediaStore.Images.Media.DISPLAY_NAME, "aki_${System.currentTimeMillis()}.jpg")
-                    put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                    put(MediaStore.Images.Media.DISPLAY_NAME, "aki_${System.currentTimeMillis()}.$extension")
+                    put(MediaStore.Images.Media.MIME_TYPE, mimeType)
                     put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Aki Studio")
                     put(MediaStore.Images.Media.IS_PENDING, 1)
                 }
@@ -506,14 +526,14 @@ class MainActivity : Activity() {
                     ?: throw IOException("Could not create output file")
                 try {
                     contentResolver.openOutputStream(destination)?.use { stream ->
-                        if (!output.compress(Bitmap.CompressFormat.JPEG, 94, stream)) {
-                            throw IOException("JPEG encoding failed")
+                        if (!output.compress(format, quality, stream)) {
+                            throw IOException("$extension encoding failed")
                         }
                     } ?: throw IOException("Could not write output")
                     values.clear()
                     values.put(MediaStore.Images.Media.IS_PENDING, 0)
                     contentResolver.update(destination, values, null, null)
-                    showStatus(if (english) "Saved a new copy in Pictures/Aki Studio." else "አዲስ ቅጂ በPictures/Aki Studio ተቀምጧል።")
+                    showStatus(if (english) "Saved a new $label copy in Pictures/Aki Studio." else "አዲስ $label ቅጂ በPictures/Aki Studio ተቀምጧል።")
                 } catch (error: Exception) {
                     contentResolver.delete(destination, null, null)
                     throw error
