@@ -26,6 +26,7 @@ This directory contains controlled product, architecture, governance, and verifi
 - `implementation/AKIDS-A3-UI-SYSTEM-001-v0.1.0.md` — reusable futuristic studio UI components, categorized workspace shell, interaction/accessibility principles, and unified creative-workspace direction.
 - `implementation/AKIDS-A3-LAYERS-TYPE-VECTOR-001-v0.1.0.md` — versioned editable layers, local CPU compositing, typography, vector primitives, project persistence and verification limits.
 - `implementation/AKIDS-A3-DIRECT-MANIPULATION-001-v0.1.0.md` — touch selection, move, corner resize, rotation, center snapping and layer schema compatibility.
+- `implementation/AKIDS-A3-DESIGN-ADVANCED-001-v0.1.0.md` — multilingual typography controls, Ethiopic system fallback, editable Bézier paths, group transforms, object snapping, drag-reorder layer panel, and regression-test scope.
 
 ## Controlled baseline records
 
