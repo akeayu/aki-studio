@@ -36,6 +36,8 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private var sourceUri: Uri? = null
     private var previewBitmap: Bitmap? = null
+    private var originalPreviewBitmap: Bitmap? = null
+    private var showingOriginal = false
     private var rotation = 0f
     private var monochrome = false
     private var english = false
@@ -133,6 +135,11 @@ class MainActivity : Activity() {
         row7.addView(actionButton(if (english) "Manual background mask" else "በእጅ የጀርባ ማስክ") { configureManualMask() }, weighted())
         page.addView(row7)
 
+        val row8 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        row8.addView(actionButton(if (english) "Mask controls" else "የማስክ መቆጣጠሪያ") { configureMaskControls() }, weighted())
+        row8.addView(actionButton(if (english) "Before / After" else "ከዚያ በፊት / በኋላ") { toggleBeforeAfter() }, weighted())
+        page.addView(row8)
+
         val language = Button(this).apply {
             text = if (english) "አማርኛ" else "English"
             setOnClickListener {
@@ -179,11 +186,15 @@ class MainActivity : Activity() {
         clearEdits()
         try {
             previewBitmap?.recycle()
+            originalPreviewBitmap?.recycle()
+            originalPreviewBitmap = decodeBounded(uri, PREVIEW_MAX_EDGE)
+            showingOriginal = false
             previewBitmap = buildEditedBitmap(PREVIEW_MAX_EDGE)
             renderPreview()
             showStatus(if (english) "Photo opened locally. Original file is unchanged." else "ፎቶው በመሣሪያው ላይ ተከፍቷል። ዋናው ፋይል አልተቀየረም።")
         } catch (error: Exception) {
             sourceUri = null
+            originalPreviewBitmap?.recycle(); originalPreviewBitmap = null
             showStatus(if (english) "Could not open this image: ${error.message ?: "unsupported file"}" else "ፎቶውን መክፈት አልተቻለም።")
         }
     }
@@ -441,6 +452,17 @@ class MainActivity : Activity() {
 
     private fun saveCopy() {
         if (sourceUri == null) return noPhoto()
+        val dimensions = (previewBitmap?.width ?: 0).toString() + " × " + (previewBitmap?.height ?: 0) + " px"
+        AlertDialog.Builder(this)
+            .setTitle(if (english) "Confirm export" else "የፎቶ ማስቀመጥን ያረጋግጡ")
+            .setMessage(if (english) "Save a new JPEG copy ($dimensions) to Pictures/Aki Studio? The original file will not be changed." else "አዲስ JPEG ቅጂ ($dimensions) በPictures/Aki Studio ይቀመጥ? ዋናው ፋይል አይቀየርም።")
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Save copy" else "ቅጂ አስቀምጥ") { _, _ -> performSaveCopy() }
+            .show()
+    }
+
+    private fun performSaveCopy() {
+        if (sourceUri == null) return noPhoto()
         try {
             val output = buildEditedBitmap(EXPORT_MAX_EDGE)
             try {
@@ -474,6 +496,53 @@ class MainActivity : Activity() {
         }
     }
 
+
+    private fun toggleBeforeAfter() {
+        if (sourceUri == null) return noPhoto()
+        showingOriginal = !showingOriginal
+        preview.setImageBitmap(if (showingOriginal) originalPreviewBitmap else previewBitmap)
+        guideOverlay.configure(if (showingOriginal) originalPreviewBitmap else previewBitmap, headHeightPercent, eyeLinePercent, guidesVisible && !showingOriginal)
+        maskOverlay.configure(previewBitmap, false)
+        showStatus(if (english) {
+            if (showingOriginal) "Before: original image preview. No edits are applied to the source." else "After: current edited preview."
+        } else {
+            if (showingOriginal) "ከማስተካከያ በፊት፦ ዋናው ፎቶ።" else "ከማስተካከያ በኋላ፦ አሁን ያለው ቅድመ እይታ።"
+        })
+    }
+
+    private fun configureMaskControls() {
+        if (sourceUri == null) return noPhoto()
+        val options = arrayOf(
+            if (english) "Undo last stroke" else "የመጨረሻውን ስትሮክ መልስ",
+            if (english) "Redo stroke" else "ስትሮክ እንደገና አድርግ",
+            if (english) "Brush size and edge softness" else "የብሩሽ መጠንና የጠርዝ ለስላሳነት"
+        )
+        AlertDialog.Builder(this).setTitle(if (english) "Mask editing controls" else "የማስክ ማስተካከያ")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> { maskOverlay.undo(); showStatus(if (english) "Undo applied." else "የመጨረሻው ስትሮክ ተመልሷል።") }
+                    1 -> { maskOverlay.redo(); showStatus(if (english) "Redo applied." else "ስትሮኩ እንደገና ተተግብሯል።") }
+                    2 -> {
+                        val fields = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
+                        val brush = EditText(this).apply { hint = if (english) "Brush width (1–12%)" else "የብሩሽ ስፋት (1–12%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText("4") }
+                        val feather = EditText(this).apply { hint = if (english) "Edge softness (0–4%)" else "የጠርዝ ለስላሳነት (0–4%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText("1") }
+                        fields.addView(brush); fields.addView(feather)
+                        AlertDialog.Builder(this).setTitle(if (english) "Brush and feather" else "ብሩሽና ጠርዝ")
+                            .setView(fields).setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+                            .setPositiveButton(if (english) "Apply" else "ተግብር") { _, _ ->
+                                val b = brush.text.toString().toFloatOrNull()
+                                val f = feather.text.toString().toFloatOrNull()
+                                if (b == null || f == null || b !in 1f..12f || f !in 0f..4f) {
+                                    showStatus(if (english) "Brush must be 1–12; feather must be 0–4." else "ብሩሽ 1–12፣ ጠርዝ 0–4 መሆን አለበት።")
+                                } else {
+                                    maskOverlay.setBrushPercent(b); maskOverlay.setFeatherPercent(f)
+                                    showStatus(if (english) "Brush settings apply to new strokes." else "የብሩሽ ቅንብሮች ለአዲስ ስትሮኮች ይሠራሉ።")
+                                }
+                            }.show()
+                    }
+                }
+            }.show()
+    }
 
     private fun configureManualMask() {
         if (sourceUri == null) return noPhoto()
@@ -763,8 +832,8 @@ class MainActivity : Activity() {
     }
 
     private fun renderPreview() {
-        preview.setImageBitmap(previewBitmap)
-        guideOverlay.configure(previewBitmap, headHeightPercent, eyeLinePercent, guidesVisible)
+        preview.setImageBitmap(if (showingOriginal) originalPreviewBitmap else previewBitmap)
+        guideOverlay.configure(if (showingOriginal) originalPreviewBitmap else previewBitmap, headHeightPercent, eyeLinePercent, guidesVisible && !showingOriginal)
         if (::maskOverlay.isInitialized) maskOverlay.configure(previewBitmap, false)
     }
 
@@ -781,6 +850,8 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         previewBitmap?.recycle()
         previewBitmap = null
+        originalPreviewBitmap?.recycle()
+        originalPreviewBitmap = null
         super.onDestroy()
     }
 
