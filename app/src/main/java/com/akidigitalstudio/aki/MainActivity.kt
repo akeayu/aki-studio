@@ -226,6 +226,20 @@ class MainActivity : Activity() {
             }
             inspectorSummary = summaryView
             addView(summaryView)
+            addView(Button(this@MainActivity).apply {
+                text = if (english) "Edit selected layer properties" else "የተመረጠውን ንብርብር አስተካክል"
+                isAllCaps = false
+                setOnClickListener {
+                    val selectedIndex = designLayers.indexOfFirst { it.id == selectedDesignLayerId }
+                    if (selectedIndex >= 0) editDesignLayer(selectedIndex)
+                    else showStatus(if (english) "Select a design layer on the canvas first." else "መጀመሪያ በካንቫስ ላይ ንብርብር ይምረጡ።")
+                }
+            })
+            addView(Button(this@MainActivity).apply {
+                text = if (english) "Manage layers" else "ንብርብሮችን አስተዳድር"
+                isAllCaps = false
+                setOnClickListener { manageDesignLayers() }
+            })
         }
         val inspectorCard = AkiStudioUi.card(this, inspectorContent)
         inspectorPanel = inspectorCard
