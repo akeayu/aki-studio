@@ -41,6 +41,7 @@ Both photo exports (JPEG/PNG) and A4 print-sheet PDFs now ask for a filename bef
 | Reusable local pattern and tokens implemented | PASS (source inspection) |
 | Filename sanitization and extension handling | PASS (source inspection) |
 | Filename helper JVM tests authored | PASS (tests authored; not executed) |
+| Standalone Kotlin compilation and filename-helper behavior harness | PASS (6/6 checks; separate from Gradle/JUnit) |
 | Android Gradle compilation | NOT RUN |
 | JVM test execution | NOT RUN |
 | Touch interaction / aspect-ratio device test | NOT RUN |
