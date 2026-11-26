@@ -40,14 +40,14 @@ The image preview remains central. Existing editing operations and local-only pr
 
 ## Interaction and accessibility principles
 
-- Touch targets are 76 dp high for tool tiles, above the Android 48 dp minimum target guideline.
+- Touch targets are 96 dp high for tool tiles, above the Android 48 dp minimum target guideline.
 - Tiles are keyboard-focusable and expose a content description combining title and purpose.
 - Ripple feedback communicates activation.
 - Labels and explanatory subtitles reduce reliance on symbols alone.
 - Amharic remains the default language; English remains selectable.
 - The UI does not claim that heuristic background estimates or photo-quality scores are authoritative AI or official compliance results.
 - Use of colour is paired with text labels; colour is not the only carrier of state.
-- The layout uses scrollable content to accommodate small screens.
+- The layout uses scrollable content to accommodate small screens. Tool tiles use a vertical icon/title hierarchy to retain readable text on narrow phones; the language switch has a 48 dp minimum height.
 
 ## Runtime and dependency constraints
 
