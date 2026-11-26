@@ -28,12 +28,12 @@ The controlling distinction is:
 
 ### 2.1 IROKA canonical main
 
-- Repository: ake fadaka-git/iroka — https://github.com/akefadaka-git/iroka
+- Repository: akefadaka-git/iroka — https://github.com/akefadaka-git/iroka
 - Repository ID: 1445234713
 - Current main SHA observed: 6b7004c897907f5ca40de58fee7222732fd7cde0
 - Main commit date: 21 November 2026
 - Main workspace contains crates/iroka-kernel; it does not contain the TALORA task API crate.
-- G01 credential-verifier source blob: crates/iroka-kernel/src/identity_crypto.rs, blob 1ae42e7439129af0d27148ccc1ac38f0b11cd28575.
+- G01 credential-verifier source blob: crates/iroka-kernel/src/identity_crypto.rs, blob 1ae42e7439129af0d27148ccc9f8f0b11cd28575.
 - Verified-principal source blob: crates/iroka-kernel/src/identity.rs, blob 36b4230be95e4f72f79e1d4b6b1b29e9062de051.
 - Main G01 contract: https://github.com/akefadaka-git/iroka/blob/main/docs/architecture/G01-IDENTITY-CONTRACT.md
 - Main credential lifecycle: https://github.com/akefadaka-git/iroka/blob/main/docs/architecture/G01-CREDENTIAL-VERIFICATION.md
