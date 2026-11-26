@@ -981,6 +981,7 @@ class MainActivity : Activity() {
         val strokeColor = EditText(this).apply { hint = "Stroke color (#RRGGBB)"; setSingleLine(true); setText(String.format("#%06X", 0xFFFFFF and layer.strokeColor)) }
         val fontScale = EditText(this).apply { hint = "Text size (1–20% of canvas)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.fontScale * 100).toInt().toString()) }
         val strokeWidth = EditText(this).apply { hint = "Stroke width (0–8% of canvas)"; inputType = InputType.TYPE_CLASS_NUMBER; setText(kotlin.math.round(layer.strokeWidth * 100).toInt().toString()) }
+        val pathInput = EditText(this).apply { hint = "M 0.1 0.8 C ..."; minLines = 3; setText(layer.pathData); visibility = if (layer.shape == "CUSTOM_PATH") android.view.View.VISIBLE else android.view.View.GONE }
         val bold = CheckBox(this).apply { text = if (english) "Bold typography" else "ደማቅ ጽሑፍ"; isChecked = layer.bold; visibility = if (layer.kind == "TEXT") android.view.View.VISIBLE else android.view.View.GONE }
         val italic = CheckBox(this).apply { text = if (english) "Italic typography" else "ሰያፍ ጽሑፍ"; isChecked = layer.italic; visibility = if (layer.kind == "TEXT") android.view.View.VISIBLE else android.view.View.GONE }
         val visible = CheckBox(this).apply { text = if (english) "Visible" else "የሚታይ"; isChecked = layer.visible }
@@ -988,7 +989,7 @@ class MainActivity : Activity() {
         val fields = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(8), dp(20), 0)
-            listOf(name, x, y, width, height, opacity, fillColor, strokeColor, fontScale, strokeWidth, bold, italic, visible, locked).forEach { addView(it) }
+            listOf(name, x, y, width, height, opacity, fillColor, strokeColor, fontScale, strokeWidth, pathInput, bold, italic, visible, locked).forEach { addView(it) }
         }
         val dialog = AlertDialog.Builder(this)
             .setTitle(layer.name)
@@ -1023,6 +1024,7 @@ class MainActivity : Activity() {
                     opacity = po / 100f, fillColor = fill, strokeColor = outline,
                     fontScale = font / 100f, strokeWidth = stroke / 100f,
                     bold = bold.isChecked, italic = italic.isChecked,
+                    pathData = if (layer.shape == "CUSTOM_PATH") pathInput.text.toString().trim() else layer.pathData,
                     visible = visible.isChecked, locked = locked.isChecked
                 ).validated()
                 dialog.dismiss()
