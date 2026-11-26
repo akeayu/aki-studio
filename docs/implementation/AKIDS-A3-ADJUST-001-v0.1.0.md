@@ -47,13 +47,17 @@ The values are stored as an edit recipe in the existing private project manifest
 - [x] Reset returns all four values to neutral.
 - [x] The existing local-only runtime boundary is unchanged.
 
+## Added pixel-math unit coverage
+
+The colour transform is factored into an internal pure pixel function so its arithmetic can be tested without Android bitmap runtime calls. `ImageAdjustmentEngineTest.kt` covers neutral identity, brightness direction, grayscale saturation, warm/cool channel balance, alpha preservation, and byte-channel clamping. These tests are authored but have not been executed; they do not verify Bitmap allocation, row processing, Android rendering, or device performance.
+
 ## Verification boundary
 
 | Verification | Status |
 |---|---|
 | Source integration and static inspection | PASS (manual source review) |
 | Kotlin/Android Gradle compilation | NOT RUN |
-| Unit tests | NOT RUN |
+| Tonal pixel-math unit tests | AUTHORED; NOT RUN |
 | Emulator / physical-device rendering | NOT RUN |
 | Large-image memory and latency profiling | NOT RUN |
 | Airplane-mode runtime test | NOT RUN |
