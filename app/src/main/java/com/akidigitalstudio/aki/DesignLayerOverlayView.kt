@@ -55,6 +55,7 @@ class DesignLayerOverlayView(context: Context) : View(context) {
     private var startLayer: DesignLayer? = null
     private var startAngle = 0f
     private var startRotation = 0f
+    private var resizeCorner = -1
     private var snappedX = false
     private var snappedY = false
 
@@ -141,10 +142,12 @@ class DesignLayerOverlayView(context: Context) : View(context) {
                 val centerY = rect.centerY()
                 val rotateY = rect.top - 30f * resources.displayMetrics.density
                 val handle = 18f * resources.displayMetrics.density
+                val corners = arrayOf(rect.left to rect.top, rect.right to rect.top, rect.left to rect.bottom, rect.right to rect.bottom)
+                resizeCorner = corners.indices.minByOrNull { i -> distance(event.x, event.y, corners[i].first, corners[i].second) } ?: -1
+                val cornerHit = resizeCorner >= 0 && distance(event.x, event.y, corners[resizeCorner].first, corners[resizeCorner].second) <= handle * 1.6f
                 gestureMode = when {
-                    distance(event.x, event.y, centerX, rotateY) <= handle -> GestureMode.ROTATE
-                    distance(event.x, event.y, rect.right, rect.bottom) <= handle * 1.25f -> GestureMode.RESIZE
-                    distance(event.x, event.y, rect.left, rect.top) <= handle * 1.25f -> GestureMode.RESIZE
+                    distance(event.x, event.y, centerX, rotateY) <= handle * 1.6f -> GestureMode.ROTATE
+                    cornerHit -> GestureMode.RESIZE
                     rect.contains(event.x, event.y) -> GestureMode.MOVE
                     else -> GestureMode.NONE
                 }
@@ -169,9 +172,11 @@ class DesignLayerOverlayView(context: Context) : View(context) {
                         base.copy(x = nx, y = ny)
                     }
                     GestureMode.RESIZE -> {
-                        val nw = (base.width + dx * 2f).coerceIn(0.01f, 1f)
-                        val nh = (base.height + dy * 2f).coerceIn(0.01f, 1f)
-                        base.copy(width = nw, height = nh)
+                        val right = resizeCorner == 1 || resizeCorner == 3
+                        val bottom = resizeCorner == 2 || resizeCorner == 3
+                        val nw = (base.width + (if (right) dx else -dx) * 2f).coerceIn(0.01f, 1f)
+                        val nh = (base.height + (if (bottom) dy else -dy) * 2f).coerceIn(0.01f, 1f)
+                        base.copy(x = (base.x + dx / 2f).coerceIn(0f, 1f), y = (base.y + dy / 2f).coerceIn(0f, 1f), width = nw, height = nh)
                     }
                     GestureMode.ROTATE -> {
                         val rect = layerRect(base)
@@ -194,6 +199,7 @@ class DesignLayerOverlayView(context: Context) : View(context) {
                 working = null
                 startLayer = null
                 gestureMode = GestureMode.NONE
+                resizeCorner = -1
                 snappedX = false
                 snappedY = false
                 parent?.requestDisallowInterceptTouchEvent(false)
@@ -207,7 +213,7 @@ class DesignLayerOverlayView(context: Context) : View(context) {
 
     private fun hitLayer(layer: DesignLayer, x: Float, y: Float): Boolean {
         val rect = layerRect(layer)
-        val tolerance = 20f * resources.displayMetrics.density
+        val tolerance = 44f * resources.displayMetrics.density
         return RectF(rect.left - tolerance, rect.top - tolerance, rect.right + tolerance, rect.bottom + tolerance).contains(x, y)
     }
 
