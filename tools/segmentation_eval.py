@@ -31,7 +31,7 @@ def fixture(kind: str):
                 bg = (220, 220, 220)
                 fg = (195, 195, 195)
             elif kind == "varying_background":
-                value = 185 + int(65 * x / (W-1))
+                value = 100 + int(150 * x / (W-1))
                 bg = (value, value, value)
                 fg = (35, 62, 92)
             else:
