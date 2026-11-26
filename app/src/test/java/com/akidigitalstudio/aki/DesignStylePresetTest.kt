@@ -48,3 +48,23 @@ class DesignStylePresetTest {
         assertEquals(0.65f, styled.opacity)
     }
 }
+
+class AdaptiveUiProfileBreakpointTest {
+    @Test
+    fun compactClassCoversWidthsBelowSixHundredDp() {
+        assertEquals(WindowWidthClass.COMPACT, AdaptiveUiProfile.classify(320))
+        assertEquals(WindowWidthClass.COMPACT, AdaptiveUiProfile.classify(599))
+    }
+
+    @Test
+    fun mediumClassIncludesSixHundredAndExcludesEightHundredFortyDp() {
+        assertEquals(WindowWidthClass.MEDIUM, AdaptiveUiProfile.classify(600))
+        assertEquals(WindowWidthClass.MEDIUM, AdaptiveUiProfile.classify(839))
+    }
+
+    @Test
+    fun expandedClassStartsAtEightHundredFortyDp() {
+        assertEquals(WindowWidthClass.EXPANDED, AdaptiveUiProfile.classify(840))
+        assertEquals(WindowWidthClass.EXPANDED, AdaptiveUiProfile.classify(1200))
+    }
+}
