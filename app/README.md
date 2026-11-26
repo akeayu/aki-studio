@@ -29,7 +29,7 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 - Resize within maximum width/height pixel bounds while preserving aspect ratio and avoiding upscaling.
 - Apply or remove monochrome effect.
 - Reset edits while preserving the source.
-- Save a new JPEG copy under `Pictures/Aki Studio`.
+- Save a new JPEG copy (quality 94) or lossless PNG under `Pictures/Aki Studio`; PNG retains alpha when present in the edited bitmap.
 
 ### ID/passport preparation
 - Dimension presets: 35 × 45 mm (413 × 531 px) and 2 × 2 inch (600 × 600 px), calculated for 300 DPI.
@@ -70,7 +70,7 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 - Background segmentation currently depends on a low-confidence border-colour heuristic; manual inspection and correction are required.
 - The optional LiteRT model binary is not present and has not been checksum-verified or licensed into this repository.
 - Current LiteRT adapter stretches non-square images to its square tensor input; aspect-ratio-aware preprocessing requires further evaluation.
-- JPEG exports do not yet embed independently verified 300-DPI metadata.
+- JPEG/PNG exports do not yet embed independently verified 300-DPI metadata or implement ICC/EXIF preservation and metadata-scrubbing policy.
 - A4 print output is single-page, has no printer calibration, bleed configuration, or jurisdiction-specific cut specifications.
 - No national ID/passport standard has been independently verified and marked authority-verified.
 - Photo-quality thresholds and segmentation quality have not been validated on a representative, consented image corpus.
