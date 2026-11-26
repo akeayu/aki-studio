@@ -22,10 +22,10 @@ class LiteRtSelfieSegmenter private constructor(
         require(!source.isRecycled && source.width > 0 && source.height > 0)
 
         val input = Array(1) { Array(INPUT_SIZE) { Array(INPUT_SIZE) { FloatArray(3) } } }
-        val square = centerSquare(source)
+        val modelInput = resizeFullFrame(source)
         try {
             val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
-            square.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
+            modelInput.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
             var p = 0
             for (y in 0 until INPUT_SIZE) {
                 for (x in 0 until INPUT_SIZE) {
@@ -36,7 +36,7 @@ class LiteRtSelfieSegmenter private constructor(
                 }
             }
         } finally {
-            square.recycle()
+            modelInput.recycle()
         }
 
         val output = Array(1) {
@@ -48,7 +48,9 @@ class LiteRtSelfieSegmenter private constructor(
         var index = 0
         for (y in 0 until INPUT_SIZE) {
             for (x in 0 until INPUT_SIZE) {
-                val confidence = output[0][y][x][0].coerceIn(0f, 1f)
+                val rawScore = output[0][y][x][0]
+                require(rawScore.isFinite()) { "Model returned a non-finite mask value" }
+                val confidence = rawScore.coerceIn(0f, 1f)
                 val gray = (confidence * 255f).toInt()
                 maskPixels[index++] = Color.argb(255, gray, gray, gray)
             }
@@ -76,7 +78,7 @@ class LiteRtSelfieSegmenter private constructor(
                 "Model confidence values are not calibrated probabilities of correctness.",
                 "The model was designed for prominent-person segmentation, not official-photo compliance.",
                 "Fine hair, translucent edges, multiple people and unusual backgrounds may be inaccurate.",
-                "Center-square inference excludes image regions outside the central square; inspect and correct manually."
+                "The model input is square, so non-square photos are resized to fit the tensor and their aspect ratio is distorted during inference; inspect and correct manually."
             )
         )
     }
@@ -85,8 +87,8 @@ class LiteRtSelfieSegmenter private constructor(
         interpreter.close()
     }
 
-    private fun centerSquare(source: Bitmap): Bitmap {
-        // Full-frame resize matches the model's fixed square tensor contract.
+    private fun resizeFullFrame(source: Bitmap): Bitmap {
+        // Stretch the complete frame to the fixed square tensor; no source region is cropped.
         return Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888).also { resized ->
             android.graphics.Canvas(resized).drawBitmap(
                 source,
