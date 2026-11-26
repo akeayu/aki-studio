@@ -53,6 +53,15 @@ class EditHistoryTest {
         assertEquals(mapOf("rotation" to "0"), history.undo())
     }
 
+    @Test fun defaultHistoryRetainsOneHundredStates() {
+        val history = EditHistory()
+        history.reset(mapOf("step" to "0"))
+        for (step in 1..100) history.record(mapOf("step" to step.toString()))
+        assertEquals(100, history.size)
+        assertEquals(100, EditHistory.DEFAULT_CAPACITY)
+        assertEquals(mapOf("step" to "99"), history.undo())
+    }
+
     @Test fun validatesCapacity() {
         assertThrows(IllegalArgumentException::class.java) { EditHistory(1) }
         assertThrows(IllegalArgumentException::class.java) { EditHistory(101) }
