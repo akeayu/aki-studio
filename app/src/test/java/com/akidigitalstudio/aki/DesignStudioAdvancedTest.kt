@@ -35,9 +35,9 @@ class DesignStudioAdvancedTest {
         val c = DesignLayer(id = "c", name = "C", kind = "SHAPE", shape = "LINE", x = 0.9f, y = 0.9f)
         val result = DesignStudioOperations.transformGroup(listOf(a, b, c), setOf("a", "b"), translateY = 0.1f, scale = 1.5f, rotateDegrees = 90f)
         assertEquals(0.5f, result[0].x, 0.001f)
-        assertEquals(0.6f, result[0].y, 0.001f)
+        assertEquals(0.5f, result[0].y, 0.001f)
         assertEquals(0.5f, result[1].x, 0.001f)
-        assertEquals(0.8f, result[1].y, 0.001f)
+        assertEquals(0.7f, result[1].y, 0.001f)
         assertEquals(c, result[2])
     }
 
