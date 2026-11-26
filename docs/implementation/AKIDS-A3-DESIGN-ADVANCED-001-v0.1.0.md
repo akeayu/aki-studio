@@ -72,7 +72,7 @@ The editable layer schema now supports:
 - Group transforms are numeric dialog operations, not multi-touch group gestures.
 - Object snapping uses center/edge candidates and a fixed normalized tolerance; no configurable grid, baseline, equal-spacing or guide manager.
 - Drag-and-drop layer reorder requires Android runtime interaction testing.
-- Project persistence is covered at the serialized recipe/history level by authored regression tests; a full app-private file save/reopen instrumentation test remains outstanding.
+- Added an Android instrumentation regression test that saves a private project file and reopens it to verify styled text and custom path persistence. The test is authored but NOT RUN.
 - Gradle build, JUnit execution, APK generation, emulator/device tests, API 29 compatibility, offline runtime, accessibility and memory/performance tests are NOT RUN in this record.
 
 ## Acceptance evidence
@@ -85,7 +85,7 @@ The editable layer schema now supports:
 | Custom path parser and renderer | SOURCE IMPLEMENTED |
 | Group transform and object snapping operations | SOURCE IMPLEMENTED |
 | Multi-select and drag-reorder UI wiring | SOURCE IMPLEMENTED |
-| Project/history regression tests | AUTHORED — NOT RUN |
+| Project/history JVM regression tests | AUTHORED — NOT RUN |\n| App-private project save/reopen instrumentation test | AUTHORED — NOT RUN |
 | Gradle build | NOT RUN |
 | JUnit suite | NOT RUN |
 | Physical-device verification | NOT RUN |
