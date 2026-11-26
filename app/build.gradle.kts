@@ -38,5 +38,8 @@ dependencies {
     // CPU Interpreter only; no GPU, NNAPI, Play Services, or network runtime.
     implementation("com.google.ai.edge.litert:litert:2.4.0")
 
+    // Platform-window posture and folding-feature geometry; all processing remains on-device.
+    implementation("androidx.window:window-java:1.4.0")
+
     testImplementation("junit:junit:4.13.2")
 }
