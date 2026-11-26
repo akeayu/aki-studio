@@ -194,8 +194,11 @@ class MainActivity : Activity() {
         panel("Design Studio", "የዲዛይን ስቱዲዮ", "Editable layers, type and vector elements", "ሊስተካከሉ የሚችሉ ንብርብሮች፣ ጽሑፍና ቬክተር",
             listOf(
                 action("T", "Add typography", "ጽሑፍ ጨምር", "Headlines and captions", "ርዕስና መግለጫ") { addTextLayer() },
+                action("Aa", "Advanced typography", "የላቀ ጽሑፍ", "Font face, alignment, spacing, effects", "የፊደል ቅርጽ፣ አሰላለፍ፣ ክፍተትና ተፅዕኖ") { configureAdvancedTypography() },
                 action("◇", "Add vector shape", "ቬክተር ቅርጽ ጨምር", "Rectangle, ellipse, line", "አራት ማዕዘን፣ ክብ፣ መስመር") { addShapeLayer() },
-                action("▤", "Manage layers", "ንብርብሮችን አስተዳድር", "Order, visibility, lock", "ቅደም ተከተል፣ ታይነት፣ ቁልፍ") { manageDesignLayers() },
+                action("⌁", "Custom Bézier path", "ብጁ የቤዚየር መንገድ", "Editable M/L/Q/C paths", "ሊስተካከል የሚችል M/L/Q/C") { addCustomPathLayer() },
+                action("▤", "Manage layers", "ንብርብሮችን አስተዳድር", "Select, reorder, visibility, lock", "ምረጥ፣ አደራጅ፣ ታይነትና ቁልፍ") { manageDesignLayers() },
+                action("⧉", "Select and group", "ብዙ ንብርብሮችን ምረጥ", "Multi-select and group transform", "ብዙ ምርጫና የቡድን ማንቀሳቀስ") { selectAndTransformLayers() },
                 action("✥", "Transform layers", "ንብርብሮችን አንቀሳቅስ", "Drag, resize and rotate", "ጎትት፣ መጠን ቀይር፣ አዙር") { toggleDesignTransformMode() }
             )
         )
@@ -790,22 +793,177 @@ class MainActivity : Activity() {
             .show()
     }
 
+    private fun configureAdvancedTypography() {
+        if (sourceUri == null) return noPhoto()
+        val index = designLayers.indexOfFirst { it.id == selectedDesignLayerId && it.kind == "TEXT" }
+            .takeIf { it >= 0 } ?: designLayers.indexOfFirst { it.kind == "TEXT" }
+        if (index < 0) {
+            showStatus(if (english) "Add a text layer before changing typography." else "የጽሑፍ ቅርጽን ከመቀየርዎ በፊት የጽሑፍ ንብርብር ይጨምሩ።")
+            return
+        }
+        val layer = designLayers[index]
+        val fields = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
+        fun spinner(items: Array<String>, selected: Int) = android.widget.Spinner(this).apply {
+            adapter = android.widget.ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, items)
+            setSelection(selected)
+        }
+        val alignments = arrayOf("LEFT", "CENTER", "RIGHT")
+        val fonts = arrayOf("SANS", "ETHIOPIC_SYSTEM", "SERIF", "MONOSPACE", "CONDENSED", "MEDIUM")
+        val effects = arrayOf("NONE", "SHADOW", "OUTLINE")
+        val alignment = spinner(alignments, alignments.indexOf(layer.textAlignment).coerceAtLeast(0))
+        val font = spinner(fonts, fonts.indexOf(layer.fontFamily).coerceAtLeast(0))
+        val effect = spinner(effects, effects.indexOf(layer.textEffect).coerceAtLeast(0))
+        val spacing = EditText(this).apply { hint = if (english) "Line spacing multiplier (0.8–2.0)" else "የመስመር ክፍተት (0.8–2.0)"; inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL; setText(layer.lineSpacingMultiplier.toString()) }
+        val effectWidth = EditText(this).apply { hint = if (english) "Effect width (0–3% of canvas)" else "የተፅዕኖ ስፋት (0–3%)"; inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL; setText((layer.effectWidth * 100f).toString()) }
+        val effectColor = EditText(this).apply { hint = "Effect color (#RRGGBB)"; setSingleLine(true); setText(String.format("#%06X", 0xFFFFFF and layer.effectColor)) }
+        fields.addView(TextView(this).apply { text = if (english) "Text alignment" else "የጽሑፍ አሰላለፍ" }); fields.addView(alignment)
+        fields.addView(TextView(this).apply { text = if (english) "Font face" else "የፊደል ቅርጽ" }); fields.addView(font)
+        fields.addView(TextView(this).apply { text = if (english) "Line spacing" else "የመስመር ክፍተት" }); fields.addView(spacing)
+        fields.addView(TextView(this).apply { text = if (english) "Text effect" else "የጽሑፍ ተፅዕኖ" }); fields.addView(effect)
+        fields.addView(effectWidth); fields.addView(effectColor)
+        fields.addView(TextView(this).apply {
+            text = if (english) "ETHIOPIC_SYSTEM uses Android's system sans-serif and Unicode fallback for Ethiopic glyphs in mixed Amharic/English text. Actual font coverage depends on the device." else "ETHIOPIC_SYSTEM የAndroid ሲስተም ፊደልና የUnicode ምትክ ለአማርኛ/እንግሊዝኛ ቅልቅል ጽሑፍ ይጠቀማል። የፊደል ድጋፍ በመሣሪያው ላይ ይለያያል።"
+            textSize = 12f
+        })
+        val dialog = AlertDialog.Builder(this).setTitle(if (english) "Advanced typography" else "የላቀ የጽሑፍ ቅርጽ")
+            .setView(fields).setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Apply" else "ተግብር", null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val line = spacing.text.toString().toFloatOrNull()
+                val width = effectWidth.text.toString().toFloatOrNull()
+                val color = runCatching { android.graphics.Color.parseColor(effectColor.text.toString().trim()) }.getOrNull()
+                if (line == null || line !in 0.8f..2f || width == null || width !in 0f..3f || color == null) {
+                    showStatus(if (english) "Check line spacing, effect width and color." else "የመስመር ክፍተትን፣ የተፅዕኖ ስፋትንና ቀለምን ያረጋግጡ።")
+                    return@setOnClickListener
+                }
+                designLayers[index] = layer.copy(
+                    textAlignment = alignments[alignment.selectedItemPosition],
+                    fontFamily = fonts[font.selectedItemPosition],
+                    lineSpacingMultiplier = line,
+                    textEffect = effects[effect.selectedItemPosition],
+                    effectWidth = width / 100f,
+                    effectColor = color
+                ).validated()
+                selectedDesignLayerId = layer.id
+                dialog.dismiss()
+                refreshPreview()
+            }
+        }
+        dialog.show()
+    }
+
+    private fun addCustomPathLayer() {
+        if (sourceUri == null) return noPhoto()
+        if (designLayers.size >= DesignLayerDocument.MAX_LAYERS) {
+            showStatus(if (english) "Layer limit reached (30)." else "የንብርብር ገደብ ደርሷል (30)።")
+            return
+        }
+        val input = EditText(this).apply {
+            hint = "M 0.1 0.8 C 0.1 0.2 0.9 0.2 0.9 0.8 L 0.1 0.8 Z"
+            minLines = 3
+            setText("M 0.1 0.8 C 0.1 0.2 0.9 0.2 0.9 0.8 L 0.1 0.8 Z")
+        }
+        val fields = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0); addView(input) }
+        fields.addView(TextView(this).apply {
+            text = if (english) "Use normalized coordinates from 0 to 1. Commands: M move, L line, Q quadratic Bézier, C cubic Bézier, Z close. This path remains editable in the project." else "ከ0 እስከ 1 የሚሆኑ መጠኖችን ይጠቀሙ። M ጀምር፣ L መስመር፣ Q ኳድራቲክ ቤዚየር፣ C ኩቢክ ቤዚየር፣ Z ዝጋ።"
+            textSize = 12f
+        })
+        val dialog = AlertDialog.Builder(this).setTitle(if (english) "Create custom vector path" else "ብጁ ቬክተር መንገድ ፍጠር")
+            .setView(fields).setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Add path" else "መንገድ ጨምር", null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val pathData = input.text.toString().trim()
+                try {
+                    VectorPathEngine.parse(pathData)
+                    val layer = DesignLayer(
+                        name = "Custom path ${designLayers.count { it.shape == "CUSTOM_PATH" } + 1}",
+                        kind = "SHAPE", shape = "CUSTOM_PATH", pathData = pathData,
+                        fillColor = 0x5575E0C0, strokeColor = AkiStudioUi.MINT
+                    ).validated()
+                    designLayers += layer
+                    selectedDesignLayerId = layer.id
+                    dialog.dismiss()
+                    refreshPreview()
+                    setDesignTransformMode(true)
+                } catch (error: Exception) {
+                    showStatus(if (english) "Invalid path: ${error.message}" else "የመንገድ ቅርጽ ትክክል አይደለም።")
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun selectAndTransformLayers() {
+        if (sourceUri == null) return noPhoto()
+        if (designLayers.size < 2) {
+            showStatus(if (english) "Add at least two layers to use group transforms." else "የቡድን ማንቀሳቀስ ለመጠቀም ቢያንስ ሁለት ንብርብሮችን ይጨምሩ።")
+            return
+        }
+        val selected = BooleanArray(designLayers.size)
+        val labels = designLayers.map { it.name }.toTypedArray()
+        AlertDialog.Builder(this).setTitle(if (english) "Select layers for group transform" else "ለቡድን ማንቀሳቀስ ንብርብሮችን ይምረጡ")
+            .setMultiChoiceItems(labels, selected) { _, which, checked -> selected[which] = checked }
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Transform group" else "ቡድኑን አንቀሳቅስ") { _, _ ->
+                val ids = designLayers.filterIndexed { index, _ -> selected[index] }.map { it.id }.toSet()
+                if (ids.size < 2) {
+                    showStatus(if (english) "Select at least two layers." else "ቢያንስ ሁለት ንብርብሮችን ይምረጡ።")
+                } else showGroupTransformDialog(ids)
+            }.show()
+    }
+
+    private fun showGroupTransformDialog(ids: Set<String>) {
+        val fields = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
+        fun numeric(hintText: String, value: String): EditText = EditText(this).apply {
+            hint = hintText; inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED or InputType.TYPE_NUMBER_FLAG_DECIMAL; setText(value)
+        }.also(fields::addView)
+        val dx = numeric(if (english) "Horizontal shift (%)" else "አግድም ማንቀሳቀስ (%)", "0")
+        val dy = numeric(if (english) "Vertical shift (%)" else "ቁመታዊ ማንቀሳቀስ (%)", "0")
+        val scale = numeric(if (english) "Scale (%) — 100 unchanged" else "የመጠን ለውጥ (%) — 100 መደበኛ", "100")
+        val angle = numeric(if (english) "Rotation (degrees)" else "ማዞር (ዲግሪ)", "0")
+        AlertDialog.Builder(this).setTitle(if (english) "Group transform" else "የቡድን ማንቀሳቀስ")
+            .setView(fields).setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Apply" else "ተግብር") { _, _ ->
+                try {
+                    val tx = (dx.text.toString().toFloatOrNull() ?: throw IllegalArgumentException()) / 100f
+                    val ty = (dy.text.toString().toFloatOrNull() ?: throw IllegalArgumentException()) / 100f
+                    val factor = (scale.text.toString().toFloatOrNull() ?: throw IllegalArgumentException()) / 100f
+                    val rotation = angle.text.toString().toFloatOrNull() ?: throw IllegalArgumentException()
+                    val changed = DesignStudioOperations.transformGroup(designLayers, ids, tx, ty, factor, rotation)
+                    designLayers.clear(); designLayers.addAll(changed)
+                    selectedDesignLayerId = ids.firstOrNull()
+                    refreshPreview()
+                    showStatus(if (english) "Group transform applied." else "የቡድን ለውጥ ተተግብሯል።")
+                } catch (error: Exception) {
+                    showStatus(if (english) "Group transform rejected: ${error.message ?: "check values"}" else "የቡድን ለውጡ አልተቀበለም።")
+                }
+            }.show()
+    }
+
     private fun manageDesignLayers() {
         if (sourceUri == null) return noPhoto()
         if (designLayers.isEmpty()) {
             showStatus(if (english) "No design layers yet. Add text or a vector shape first." else "ገና ንብርብር የለም። ጽሑፍ ወይም ቬክተር ይጨምሩ።")
             return
         }
-        val labels = designLayers.asReversed().mapIndexed { index, layer ->
-            "${if (layer.visible) "●" else "○"}  ${if (layer.locked) "🔒" else ""}${layer.name}  ·  ${layer.kind}"
-        }.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle(if (english) "Layers — top to bottom" else "ንብርብሮች — ከላይ ወደ ታች")
-            .setItems(labels) { _, reverseIndex ->
-                val index = designLayers.lastIndex - reverseIndex
-                selectedDesignLayerId = designLayers[index].id
-                editDesignLayer(index)
+        val panel = LayerReorderPanel(this, designLayers,
+            onSelect = { id ->
+                selectedDesignLayerId = id
+                val index = designLayers.indexOfFirst { it.id == id }
+                if (index >= 0) editDesignLayer(index)
+            },
+            onReorder = { reordered ->
+                designLayers.clear()
+                designLayers.addAll(reordered)
+                refreshPreview()
+                showStatus(if (english) "Layer stacking order updated." else "የንብርብሮች ቅደም ተከተል ተቀይሯል።")
             }
+        )
+        AlertDialog.Builder(this)
+            .setTitle(if (english) "Layer panel — drag to reorder" else "የንብርብር ፓነል — ለመቀየር ጎትት")
+            .setView(ScrollView(this).apply { addView(panel) })
             .setNegativeButton(if (english) "Close" else "ዝጋ", null)
             .show()
     }
