@@ -24,6 +24,11 @@ class ExportFileNamingTest {
     }
 
     @Test
+    fun replacesAnyKnownExtensionWithSelectedExportExtension() {
+        assertEquals("portrait.jpg", ExportFileNaming.safeBaseName("portrait.PNG", "jpg"))
+    }
+
+    @Test
     fun rejectsBlankNames() {
         assertThrows(IllegalArgumentException::class.java) {
             ExportFileNaming.safeBaseName(" .. ", "jpg")
