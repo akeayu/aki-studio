@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.ContentValues
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.RectF
@@ -83,10 +84,17 @@ class MainActivity : Activity() {
         showStatus(if (english) "Ready. Your photos stay on this device." else "ዝግጁ ነው። ፎቶዎችዎ በዚህ መሣሪያ ላይ ብቻ ይቆያሉ።")
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        buildScreen()
+        renderPreview()
+    }
+
     private fun buildScreen() {
+        val profile = AdaptiveUiProfile.from(this)
         window.statusBarColor = AkiStudioUi.INK
         window.navigationBarColor = AkiStudioUi.INK
-        val page = AkiStudioUi.page(this)
+        val page = AkiStudioUi.page(this, profile)
         page.addView(AkiStudioUi.header(this, english) {
             english = !english
             buildScreen()
@@ -121,7 +129,7 @@ class MainActivity : Activity() {
             addView(designOverlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
         page.addView(previewFrame, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, dp(300)
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(profile.previewHeightDp)
         ).apply { topMargin = dp(5); bottomMargin = dp(10) })
 
         status = AkiStudioUi.statusText(this)
@@ -130,16 +138,31 @@ class MainActivity : Activity() {
             bottomMargin = dp(14)
         })
 
+        val panelHost = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val primaryPanelColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val secondaryPanelColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        panelHost.addView(primaryPanelColumn, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        if (profile.panelColumns > 1) {
+            panelHost.addView(secondaryPanelColumn, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                leftMargin = dp(10)
+            })
+        }
+        page.addView(panelHost)
+        var panelIndex = 0
+
         fun action(symbol: String, en: String, am: String, subEn: String, subAm: String, click: () -> Unit) =
             AkiStudioUi.Action(symbol, if (english) en else am, if (english) subEn else subAm, click)
 
         fun panel(titleEn: String, titleAm: String, subEn: String, subAm: String, actions: List<AkiStudioUi.Action>) {
-            page.addView(AkiStudioUi.panel(
+            val targetColumn = if (profile.panelColumns > 1 && panelIndex % 2 == 1) secondaryPanelColumn else primaryPanelColumn
+            panelIndex += 1
+            targetColumn.addView(AkiStudioUi.panel(
                 this,
                 if (english) titleEn else titleAm,
                 if (english) subEn else subAm,
                 actions,
-                english
+                english,
+                profile
             ), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(12)
             })
@@ -209,11 +232,27 @@ class MainActivity : Activity() {
             if (english) "LOCAL-FIRST  ·  ORIGINALS PRESERVED  ·  NO ACCOUNT" else "በመሣሪያው ላይ ብቻ  · ዋናው ፎቶ ይጠበቃል · መለያ አያስፈልግም",
             AkiStudioUi.MINT
         ))
-        setContentView(ScrollView(this).apply {
+        val scroll = ScrollView(this).apply {
             isFillViewport = true
+            clipToPadding = false
             setBackgroundColor(AkiStudioUi.INK)
-            addView(page)
-        })
+        }
+        val contentFrame = FrameLayout(this)
+        val contentWidth = if (profile.widthDp > profile.maxContentWidthDp) dp(profile.maxContentWidthDp) else ViewGroup.LayoutParams.MATCH_PARENT
+        contentFrame.addView(page, FrameLayout.LayoutParams(
+            contentWidth, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        ))
+        scroll.addView(contentFrame)
+        scroll.setOnApplyWindowInsetsListener { _, insets ->
+            page.setPadding(
+                dp(profile.pagePaddingDp),
+                dp(profile.pagePaddingDp + 4) + insets.systemWindowInsetTop,
+                dp(profile.pagePaddingDp),
+                dp(profile.pagePaddingDp + 12) + insets.systemWindowInsetBottom
+            )
+            insets
+        }
+        setContentView(scroll)
     }
 
     private fun actionButton(label: String, action: () -> Unit) = Button(this).apply {
