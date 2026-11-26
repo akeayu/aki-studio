@@ -120,6 +120,10 @@ class MainActivity : Activity() {
         row5.addView(actionButton(if (english) "Photo standard" else "የፎቶ መስፈርት") { configurePhotoSpecification() }, weighted())
         page.addView(row5)
 
+        val row6 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        row6.addView(actionButton(if (english) "Photo quality" else "የፎቶ ጥራት") { assessPhotoQuality() }, weighted())
+        page.addView(row6)
+
         val language = Button(this).apply {
             text = if (english) "አማርኛ" else "English"
             setOnClickListener {
@@ -453,6 +457,38 @@ class MainActivity : Activity() {
         }
     }
 
+
+    private fun assessPhotoQuality() {
+        if (sourceUri == null) return noPhoto()
+        var assessmentBitmap: Bitmap? = null
+        try {
+            assessmentBitmap = buildEditedBitmap(PREVIEW_MAX_EDGE)
+            val report = PhotoQualityAssessment.assess(assessmentBitmap)
+            val lines = mutableListOf<String>()
+            lines += if (english) "Image: ${report.width} × ${report.height} px" else "ምስል፦ ${report.width} × ${report.height} px"
+            lines += if (english) "Aspect ratio: ${"%.3f".format(report.aspectRatio)}" else "የጎን ጥምርታ፦ ${"%.3f".format(report.aspectRatio)}"
+            lines += if (english) "Sharpness indicator: ${"%.1f".format(report.sharpnessScore)}" else "ጥርትነት አመልካች፦ ${"%.1f".format(report.sharpnessScore)}"
+            lines += if (english) "Clipped shadows/highlights: ${"%.1f".format(report.clippedPercent)}%" else "የጠቆረ/የበራ የተቆረጠ ክፍል፦ ${"%.1f".format(report.clippedPercent)}%"
+            lines += if (english) "Contrast (luma SD): ${"%.1f".format(report.contrastScore)}" else "ንፅፅር (luma SD)፦ ${"%.1f".format(report.contrastScore)}"
+            lines += if (english) "Border uniformity indicator: ${"%.1f".format(report.borderVariation)}" else "የዳርቻ ተመሳሳይነት አመልካች፦ ${"%.1f".format(report.borderVariation)}"
+            lines += ""
+            lines += if (english) "Warnings" else "ማስጠንቀቂያዎች"
+            lines += if (report.warnings.isEmpty()) {
+                listOf(if (english) "No heuristic warnings. This is not a compliance approval." else "በግምታዊ መለኪያዎቹ ማስጠንቀቂያ አልተገኘም። ይህ የመስፈርት ማረጋገጫ አይደለም።")
+            } else report.warnings.map { if (english) it else it }
+            lines += ""
+            lines += if (english) "These are on-device heuristic indicators only. Blur, exposure and border uniformity depend on image content; no face detection, background segmentation or official-standard verification is performed." else "እነዚህ በመሣሪያው ላይ የሚሰሩ ግምታዊ አመልካቾች ብቻ ናቸው። የፊት ለይቶ ማወቅ፣ የጀርባ ክፍል መለየት ወይም ይፋዊ መስፈርት ማረጋገጥ አይከናወንም።"
+            AlertDialog.Builder(this)
+                .setTitle(if (english) "Local photo quality assessment" else "በመሣሪያው ላይ የፎቶ ጥራት ግምገማ")
+                .setMessage(lines.joinToString("\n"))
+                .setPositiveButton(if (english) "Close" else "ዝጋ", null)
+                .show()
+        } catch (error: Exception) {
+            showStatus(if (english) "Quality assessment failed: ${error.message ?: "image error"}" else "የጥራት ግምገማው አልተሳካም።")
+        } finally {
+            assessmentBitmap?.recycle()
+        }
+    }
 
     private fun configurePhotoSpecification() {
         if (sourceUri == null) return noPhoto()
