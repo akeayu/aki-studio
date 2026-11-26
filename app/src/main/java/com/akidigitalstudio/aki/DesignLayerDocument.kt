@@ -27,24 +27,39 @@ data class DesignLayer(
     val rotationDegrees: Float = 0f,
     val visible: Boolean = true,
     val locked: Boolean = false,
-    val opacity: Float = 1f
+    val opacity: Float = 1f,
+    val textAlignment: String = "CENTER",
+    val fontFamily: String = "SANS",
+    val lineSpacingMultiplier: Float = 1.18f,
+    val textEffect: String = "NONE",
+    val effectColor: Int = 0xFF000000.toInt(),
+    val effectWidth: Float = 0.004f,
+    val pathData: String = ""
 ) {
     fun validated(): DesignLayer {
         require(id.length in 1..64 && name.length in 1..48)
         require(kind in setOf("TEXT", "SHAPE"))
-        require(shape in setOf("", "RECTANGLE", "ELLIPSE", "LINE"))
-        require(text.length <= 500)
-        require(listOf(x, y, width, height, strokeWidth, fontScale, rotationDegrees, opacity).all { it.isFinite() })
+        require(shape in setOf("", "RECTANGLE", "ELLIPSE", "LINE", "CUSTOM_PATH"))
+        require(text.length <= 500 && pathData.length <= 2048)
+        require(listOf(x, y, width, height, strokeWidth, fontScale, rotationDegrees, opacity,
+            lineSpacingMultiplier, effectWidth).all { it.isFinite() })
         require(x in 0f..1f && y in 0f..1f && width in 0.01f..1f && height in 0.01f..1f)
         require(strokeWidth in 0f..0.08f && fontScale in 0.01f..0.2f && rotationDegrees in -180f..180f && opacity in 0f..1f)
-        require((kind == "TEXT" && text.isNotBlank()) || (kind == "SHAPE" && shape.isNotBlank()))
+        require(textAlignment in setOf("LEFT", "CENTER", "RIGHT"))
+        require(fontFamily in setOf("SANS", "SERIF", "MONOSPACE", "CONDENSED", "MEDIUM", "ETHIOPIC_SYSTEM"))
+        require(lineSpacingMultiplier in 0.8f..2f)
+        require(textEffect in setOf("NONE", "SHADOW", "OUTLINE"))
+        require(effectWidth in 0f..0.03f)
+        require((kind == "TEXT" && text.isNotBlank()) ||
+            (kind == "SHAPE" && (shape.isNotBlank() && (shape != "CUSTOM_PATH" || pathData.isNotBlank()))))
+        if (kind == "SHAPE" && shape == "CUSTOM_PATH") VectorPathEngine.parse(pathData)
         return this
     }
 }
 
 object DesignLayerDocument {
     const val MAX_LAYERS = 30
-    const val SCHEMA_VERSION = 2
+    const val SCHEMA_VERSION = 3
 
     /** Compact, bounded, dependency-free serialization for Android and local JVM tests. */
     fun encode(layers: List<DesignLayer>): String {
@@ -66,6 +81,10 @@ object DesignLayerDocument {
                 out.writeFloat(l.rotationDegrees)
                 out.writeBoolean(l.visible); out.writeBoolean(l.locked)
                 out.writeFloat(l.opacity)
+                out.writeUTF(l.textAlignment); out.writeUTF(l.fontFamily)
+                out.writeFloat(l.lineSpacingMultiplier); out.writeUTF(l.textEffect)
+                out.writeInt(l.effectColor); out.writeFloat(l.effectWidth)
+                out.writeUTF(l.pathData)
             }
         }
         return java.util.Base64.getEncoder().encodeToString(bytes.toByteArray())
@@ -83,17 +102,34 @@ object DesignLayerDocument {
         require(count in 0..MAX_LAYERS) { "Invalid design layer count" }
         val result = mutableListOf<DesignLayer>()
         repeat(count) {
+            val id = input.readUTF()
+            val name = input.readUTF()
+            val kind = input.readUTF()
+            val text = input.readUTF()
+            val shape = input.readUTF()
+            val x = input.readFloat(); val y = input.readFloat()
+            val width = input.readFloat(); val height = input.readFloat()
+            val fill = input.readInt(); val stroke = input.readInt()
+            val strokeWidth = input.readFloat(); val fontScale = input.readFloat()
+            val bold = input.readBoolean(); val italic = input.readBoolean()
+            val rotation = if (schema >= 2) input.readFloat() else 0f
+            val visible = input.readBoolean(); val locked = input.readBoolean()
+            val opacity = input.readFloat()
+            val alignment = if (schema >= 3) input.readUTF() else "CENTER"
+            val family = if (schema >= 3) input.readUTF() else "SANS"
+            val lineSpacing = if (schema >= 3) input.readFloat() else 1.18f
+            val effect = if (schema >= 3) input.readUTF() else "NONE"
+            val effectColor = if (schema >= 3) input.readInt() else 0xFF000000.toInt()
+            val effectWidth = if (schema >= 3) input.readFloat() else 0.004f
+            val pathData = if (schema >= 3) input.readUTF() else ""
             result += DesignLayer(
-                id = input.readUTF(), name = input.readUTF(), kind = input.readUTF(),
-                text = input.readUTF(), shape = input.readUTF(),
-                x = input.readFloat(), y = input.readFloat(),
-                width = input.readFloat(), height = input.readFloat(),
-                fillColor = input.readInt(), strokeColor = input.readInt(),
-                strokeWidth = input.readFloat(), fontScale = input.readFloat(),
-                bold = input.readBoolean(), italic = input.readBoolean(),
-                rotationDegrees = if (schema >= 2) input.readFloat() else 0f,
-                visible = input.readBoolean(), locked = input.readBoolean(),
-                opacity = input.readFloat()
+                id = id, name = name, kind = kind, text = text, shape = shape,
+                x = x, y = y, width = width, height = height,
+                fillColor = fill, strokeColor = stroke, strokeWidth = strokeWidth, fontScale = fontScale,
+                bold = bold, italic = italic, rotationDegrees = rotation,
+                visible = visible, locked = locked, opacity = opacity,
+                textAlignment = alignment, fontFamily = family, lineSpacingMultiplier = lineSpacing,
+                textEffect = effect, effectColor = effectColor, effectWidth = effectWidth, pathData = pathData
             ).validated()
         }
         require(input.available() == 0) { "Unexpected data after design layer document" }
@@ -120,22 +156,57 @@ object DesignLayerRenderer {
             canvas.save()
             canvas.rotate(layer.rotationDegrees, rect.centerX(), rect.centerY())
             if (layer.kind == "TEXT") {
+                val style = (if (layer.bold) Typeface.BOLD else Typeface.NORMAL) or
+                    (if (layer.italic) Typeface.ITALIC else Typeface.NORMAL)
+                val family = when (layer.fontFamily) {
+                    "SERIF" -> Typeface.SERIF
+                    "MONOSPACE" -> Typeface.MONOSPACE
+                    "CONDENSED" -> "sans-serif-condensed"
+                    "MEDIUM" -> "sans-serif-medium"
+                    "ETHIOPIC_SYSTEM" -> "sans-serif"
+                    else -> Typeface.SANS_SERIF
+                }
+                val typeface = Typeface.create(family, style)
                 val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = layer.fillColor
                     this.alpha = (alpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
                     textSize = layer.fontScale * shortEdge
-                    typeface = Typeface.create(Typeface.SANS_SERIF,
-                        (if (layer.bold) Typeface.BOLD else Typeface.NORMAL) or
-                            (if (layer.italic) Typeface.ITALIC else Typeface.NORMAL))
-                    textAlign = Paint.Align.CENTER
+                    this.typeface = typeface
+                    textAlign = when (layer.textAlignment) {
+                        "LEFT" -> Paint.Align.LEFT
+                        "RIGHT" -> Paint.Align.RIGHT
+                        else -> Paint.Align.CENTER
+                    }
                 }
-                val lines = layer.text.split("\n").take(8)
+                val lines = layer.text.split("\\n").take(8)
                 canvas.save()
                 canvas.clipRect(rect)
-                val lineHeight = paint.textSize * 1.18f
+                val lineHeight = paint.textSize * layer.lineSpacingMultiplier
                 val baseline = rect.centerY() - (lines.size - 1) * lineHeight / 2f - (paint.ascent() + paint.descent()) / 2f
+                val textX = when (layer.textAlignment) {
+                    "LEFT" -> rect.left + paint.textSize * 0.12f
+                    "RIGHT" -> rect.right - paint.textSize * 0.12f
+                    else -> rect.centerX()
+                }
                 lines.forEachIndexed { index, line ->
-                    canvas.drawText(line.take(80), rect.centerX(), baseline + index * lineHeight, paint)
+                    val y = baseline + index * lineHeight
+                    if (layer.textEffect == "SHADOW") {
+                        paint.setShadowLayer(layer.effectWidth * shortEdge, 0f, layer.effectWidth * shortEdge, layer.effectColor)
+                        canvas.drawText(line.take(80), textX, y, paint)
+                        paint.clearShadowLayer()
+                    } else if (layer.textEffect == "OUTLINE") {
+                        paint.color = layer.effectColor
+                        paint.alpha = (alpha * android.graphics.Color.alpha(layer.effectColor) / 255f).toInt()
+                        paint.style = Paint.Style.STROKE
+                        paint.strokeWidth = maxOf(1f, layer.effectWidth * shortEdge)
+                        canvas.drawText(line.take(80), textX, y, paint)
+                        paint.color = layer.fillColor
+                        paint.alpha = (alpha * android.graphics.Color.alpha(layer.fillColor) / 255f).toInt()
+                        paint.style = Paint.Style.FILL
+                        canvas.drawText(line.take(80), textX, y, paint)
+                    } else {
+                        canvas.drawText(line.take(80), textX, y, paint)
+                    }
                 }
                 canvas.restore()
             } else {
@@ -154,6 +225,11 @@ object DesignLayerRenderer {
                     "RECTANGLE" -> { canvas.drawRect(rect, fill); if (stroke.strokeWidth > 0f) canvas.drawRect(rect, stroke) }
                     "ELLIPSE" -> { canvas.drawOval(rect, fill); if (stroke.strokeWidth > 0f) canvas.drawOval(rect, stroke) }
                     "LINE" -> canvas.drawLine(rect.left, rect.centerY(), rect.right, rect.centerY(), stroke)
+                    "CUSTOM_PATH" -> {
+                        val path = VectorPathEngine.toAndroidPath(layer.pathData, rect)
+                        if (android.graphics.Color.alpha(layer.fillColor) > 0) canvas.drawPath(path, fill)
+                        if (stroke.strokeWidth > 0f) canvas.drawPath(path, stroke)
+                    }
                 }
             }
             canvas.restore()
