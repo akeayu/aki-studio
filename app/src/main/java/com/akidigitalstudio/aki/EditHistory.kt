@@ -51,7 +51,7 @@ class EditHistory(private val capacity: Int = DEFAULT_CAPACITY) {
     }
 
     companion object {
-        const val DEFAULT_CAPACITY = 40
+        const val DEFAULT_CAPACITY = 100
         const val MAX_CAPACITY = 100
     }
 }
