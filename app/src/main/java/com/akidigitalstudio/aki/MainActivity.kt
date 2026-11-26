@@ -291,35 +291,36 @@ class MainActivity : Activity() {
 
     private fun saveCopy() {
         if (sourceUri == null) return noPhoto()
-        var output: Bitmap? = null
         try {
-            output = buildEditedBitmap(EXPORT_MAX_EDGE)
-            val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, "aki_${System.currentTimeMillis()}.jpg")
-                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Aki Studio")
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            }
-            val destination = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-                ?: throw IOException("Could not create output file")
+            val output = buildEditedBitmap(EXPORT_MAX_EDGE)
             try {
-                contentResolver.openOutputStream(destination)?.use { stream ->
-                    if (!output.compress(Bitmap.CompressFormat.JPEG, 94, stream)) {
-                        throw IOException("JPEG encoding failed")
-                    }
-                } ?: throw IOException("Could not write output")
-                values.clear()
-                values.put(MediaStore.Images.Media.IS_PENDING, 0)
-                contentResolver.update(destination, values, null, null)
-                showStatus(if (english) "Saved a new copy in Pictures/Aki Studio." else "አዲስ ቅጂ በPictures/Aki Studio ተቀምጧል።")
-            } catch (error: Exception) {
-                contentResolver.delete(destination, null, null)
-                throw error
+                val values = ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, "aki_${System.currentTimeMillis()}.jpg")
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                    put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Aki Studio")
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                }
+                val destination = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                    ?: throw IOException("Could not create output file")
+                try {
+                    contentResolver.openOutputStream(destination)?.use { stream ->
+                        if (!output.compress(Bitmap.CompressFormat.JPEG, 94, stream)) {
+                            throw IOException("JPEG encoding failed")
+                        }
+                    } ?: throw IOException("Could not write output")
+                    values.clear()
+                    values.put(MediaStore.Images.Media.IS_PENDING, 0)
+                    contentResolver.update(destination, values, null, null)
+                    showStatus(if (english) "Saved a new copy in Pictures/Aki Studio." else "አዲስ ቅጂ በPictures/Aki Studio ተቀምጧል።")
+                } catch (error: Exception) {
+                    contentResolver.delete(destination, null, null)
+                    throw error
+                }
+            } finally {
+                output.recycle()
             }
         } catch (error: Exception) {
             showStatus(if (english) "Save failed: ${error.message ?: "unknown error"}" else "ማስቀመጥ አልተሳካም።")
-        } finally {
-            output?.recycle()
         }
     }
 
