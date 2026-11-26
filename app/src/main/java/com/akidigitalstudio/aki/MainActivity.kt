@@ -70,6 +70,8 @@ class MainActivity : Activity() {
     }
     private var segmentationFuture: Future<*>? = null
     private var segmentationRequestId = 0
+    private val editHistory = EditHistory()
+    private var suppressHistoryRecording = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -175,6 +177,11 @@ class MainActivity : Activity() {
         row12.addView(actionButton(if (english) "Fine crop" else "ትክክለኛ ቁረጥ") { openInteractiveCrop() }, weighted())
         page.addView(row12)
 
+        val row13 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        row13.addView(actionButton(if (english) "Undo edit" else "ለውጡን መልስ") { undoEdit() }, weighted())
+        row13.addView(actionButton(if (english) "Redo edit" else "ለውጡን ድገም") { redoEdit() }, weighted())
+        page.addView(row13)
+
         val language = Button(this).apply {
             text = if (english) "አማርኛ" else "English"
             setOnClickListener {
@@ -226,6 +233,7 @@ class MainActivity : Activity() {
             showingOriginal = false
             previewBitmap = buildEditedBitmap(PREVIEW_MAX_EDGE)
             renderPreview()
+            editHistory.reset(historySettings())
             showStatus(if (english) "Photo opened locally. Original file is unchanged." else "ፎቶው በመሣሪያው ላይ ተከፍቷል። ዋናው ፋይል አልተቀየረም።")
         } catch (error: Exception) {
             sourceUri = null
@@ -515,6 +523,7 @@ class MainActivity : Activity() {
             previewBitmap?.recycle()
             previewBitmap = next
             renderPreview()
+            if (!suppressHistoryRecording) editHistory.record(historySettings())
             val description = cropLabel?.let { " · $it" } ?: ""
             showStatus(if (english) "Local edit preview$description. Original is unchanged." else "በመሣሪያው ላይ የተደረገ ማስተካከያ$description። ዋናው ፎቶ አልተቀየረም።")
         } catch (error: Exception) {
@@ -607,6 +616,78 @@ class MainActivity : Activity() {
         clearEdits()
         refreshPreview()
         showStatus(if (english) "Edits reset. Original is unchanged." else "ለውጦቹ ተመልሰዋል። ዋናው ፎቶ አልተቀየረም።")
+    }
+
+    /**
+     * History deliberately excludes the background mask bitmap and its brush
+     * stroke stack. Those have their own dedicated undo/redo controls.
+     */
+    private fun historySettings(): Map<String, String> = mapOf(
+        "rotation" to rotation.toString(),
+        "monochrome" to monochrome.toString(),
+        "brightness" to brightness.toString(),
+        "contrast" to contrast.toString(),
+        "saturation" to saturation.toString(),
+        "warmth" to warmth.toString(),
+        "cropRatio" to (cropRatio?.toString() ?: ""),
+        "cropLeft" to (cropRectNormalized?.getOrNull(0)?.toString() ?: ""),
+        "cropTop" to (cropRectNormalized?.getOrNull(1)?.toString() ?: ""),
+        "cropRight" to (cropRectNormalized?.getOrNull(2)?.toString() ?: ""),
+        "cropBottom" to (cropRectNormalized?.getOrNull(3)?.toString() ?: ""),
+        "outputWidthPx" to (outputWidthPx?.toString() ?: ""),
+        "outputHeightPx" to (outputHeightPx?.toString() ?: ""),
+        "resizeMaxWidthPx" to (resizeMaxWidthPx?.toString() ?: ""),
+        "resizeMaxHeightPx" to (resizeMaxHeightPx?.toString() ?: ""),
+        "cropLabel" to (cropLabel ?: ""),
+        "cropHorizontal" to cropHorizontal.toString(),
+        "cropVertical" to cropVertical.toString()
+    )
+
+    private fun applyHistorySettings(values: Map<String, String>) {
+        rotation = values["rotation"]?.toFloatOrNull()?.coerceIn(0f, 270f) ?: 0f
+        monochrome = values["monochrome"].toBoolean()
+        brightness = values["brightness"]?.toIntOrNull()?.coerceIn(-100, 100) ?: 0
+        contrast = values["contrast"]?.toIntOrNull()?.coerceIn(-100, 100) ?: 0
+        saturation = values["saturation"]?.toIntOrNull()?.coerceIn(0, 200) ?: 100
+        warmth = values["warmth"]?.toIntOrNull()?.coerceIn(-100, 100) ?: 0
+        cropRatio = values["cropRatio"]?.toFloatOrNull()?.takeIf { it.isFinite() && it in 0.1f..10f }
+        val crop = listOf("cropLeft", "cropTop", "cropRight", "cropBottom").map { values[it]?.toFloatOrNull() }
+        cropRectNormalized = if (crop.all { it != null } &&
+            crop.all { it!!.isFinite() && it in 0f..1f } &&
+            crop[2]!! > crop[0]!! && crop[3]!! > crop[1]!!) crop.map { it!! }.toFloatArray() else null
+        outputWidthPx = values["outputWidthPx"]?.toIntOrNull()?.takeIf { it in 1..4096 }
+        outputHeightPx = values["outputHeightPx"]?.toIntOrNull()?.takeIf { it in 1..4096 }
+        resizeMaxWidthPx = values["resizeMaxWidthPx"]?.toIntOrNull()?.takeIf { it in 1..4096 }
+        resizeMaxHeightPx = values["resizeMaxHeightPx"]?.toIntOrNull()?.takeIf { it in 1..4096 }
+        cropLabel = values["cropLabel"]?.takeIf { it.isNotBlank() }
+        cropHorizontal = values["cropHorizontal"]?.toFloatOrNull()?.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0.5f
+        cropVertical = values["cropVertical"]?.toFloatOrNull()?.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0.5f
+    }
+
+    private fun undoEdit() {
+        if (sourceUri == null) return noPhoto()
+        val previous = editHistory.undo()
+        if (previous == null) {
+            showStatus(if (english) "No earlier edit to undo." else "የሚመለስ ቀደም ያለ ለውጥ የለም።")
+            return
+        }
+        suppressHistoryRecording = true
+        try { applyHistorySettings(previous); refreshPreview() }
+        finally { suppressHistoryRecording = false }
+        showStatus(if (english) "Edit undone." else "ለውጡ ተመልሷል።")
+    }
+
+    private fun redoEdit() {
+        if (sourceUri == null) return noPhoto()
+        val next = editHistory.redo()
+        if (next == null) {
+            showStatus(if (english) "No edit to redo." else "እንደገና የሚደረግ ለውጥ የለም።")
+            return
+        }
+        suppressHistoryRecording = true
+        try { applyHistorySettings(next); refreshPreview() }
+        finally { suppressHistoryRecording = false }
+        showStatus(if (english) "Edit restored." else "ለውጡ እንደገና ተተግብሯል።")
     }
 
 
@@ -792,6 +873,7 @@ class MainActivity : Activity() {
             previewBitmap = buildEditedBitmap(PREVIEW_MAX_EDGE)
             if (backgroundReplaceEnabled && autoMaskBitmap != null) maskOverlay.setBaseMask(autoMaskBitmap)
             renderPreview()
+            editHistory.reset(historySettings())
             showStatus(if (english) "Project reopened locally. Original image and editable settings restored." else "ፕሮጀክቱ በመሣሪያው ላይ እንደገና ተከፍቷል። ዋናው ፎቶና ቅንብሮቹ ተመልሰዋል።")
         } catch (error: Exception) {
             showStatus(if (english) "Could not open project: ${error.message ?: "project error"}" else "ፕሮጀክቱን መክፈት አልተቻለም።")
