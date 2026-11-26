@@ -28,6 +28,8 @@ The branch introduces:
 - Bounded software bitmap decode for preview.
 - 90-degree rotation, aspect-ratio crop (original, 1:1, 3:4, 4:5, 5:4 and 16:9) with a nine-position alignment selector, aspect-ratio-preserving bounded resize, monochrome conversion and reset operations.
 - ID/passport dimension presets: 35 × 45 mm exported at 413 × 531 px and 2 × 2 inch exported at 600 × 600 px (pixel dimensions calculated for 300 DPI).
+- Configurable on-screen head-height oval and eye-line guides, with bounded percentage settings and manual subject-position assistance. The guide overlay is not facial recognition, biometric analysis or an official-photo compliance validator.
+- Local A4 portrait PDF print-sheet generation with configurable 1–5 columns and 1–7 rows, aspect-ratio-preserving image placement, cell outlines and basic cut marks. PDF creation uses Android's local PdfDocument API and writes to Documents/Aki Studio.
 - Original source remains unchanged; edits are reconstructed from the selected source URI as in-memory derivatives.
 - Save-copy operation to Pictures/Aki Studio using MediaStore.
 - Amharic-first visible controls with an English language toggle.
@@ -35,9 +37,9 @@ The branch introduces:
 
 ## 3. Explicit limitations
 
-This is not the complete Aki Studio product. It does not yet implement full-resolution non-destructive edit documents, freeform draggable crop handles and arbitrary crop coordinates, jurisdiction-verified official-document specifications, camera capture, background segmentation, portrait retouching, layers, frames, print-sheet composition, PDF export, project persistence, undo history, accessibility audit or image-quality evaluation.
+This is not the complete Aki Studio product. It does not yet implement full-resolution non-destructive edit documents, freeform draggable crop handles and arbitrary crop coordinates, jurisdiction-verified official-document specifications, camera capture, automatic face/head detection, biometric measurements, background segmentation, portrait retouching, layers, frames, print-sheet multi-page/print calibration controls, project persistence, undo history, accessibility audit or image-quality evaluation.
 
-Preview decode is bounded to 1,800 pixels on the longest edge. General export decode is bounded to 4,096 pixels on the longest edge; the two ID presets then scale the cropped derivative to their fixed output pixel dimensions. Those pixel dimensions are calculated for 300 DPI, but the JPEG does not yet carry verified 300-DPI resolution metadata. The presets are dimensional helpers only and do not claim compliance with any issuing authority's photo rules. The output is a new JPEG copy; the original is not overwritten. The current implementation has not been built or tested on a physical Android device in this work record.
+Preview decode is bounded to 1,800 pixels on the longest edge. General export decode is bounded to 4,096 pixels on the longest edge; the two ID presets then scale the cropped derivative to their fixed output pixel dimensions. Those pixel dimensions are calculated for 300 DPI, but the JPEG does not yet carry verified 300-DPI resolution metadata. The presets are dimensional helpers only and do not claim compliance with any issuing authority's photo rules. Head and eye guides are manually interpreted visual aids; they do not detect a face or determine whether a subject satisfies official rules. The print sheet is a basic one-page A4 arrangement; it does not embed verified printer DPI metadata, printer-specific calibration, bleed settings or jurisdictional cut specifications. The output is a new JPEG copy; the original is not overwritten. The current implementation has not been built or tested on a physical Android device in this work record.
 
 ## 4. Runtime privacy boundary
 
@@ -57,12 +59,14 @@ Preview decode is bounded to 1,800 pixels on the longest edge. General export de
 3. Install on API 29 and API 36 devices/emulators.
 4. Test image selection, rotation, monochrome, reset, and save-copy.
 5. Test all nine crop alignments against portrait and landscape source images.
-6. Test large image and low-memory behavior on a 3 GB physical-RAM device.
-7. Verify original source digest remains unchanged.
-8. Verify exported JPEG dimensions, orientation, decoding and metadata behavior.
-9. Run core workflow in airplane mode and inspect app-initiated network traffic.
-10. Test Amharic glyph rendering and screen-reader labels.
-11. Record exact build toolchain, APK hash, device SKU, OS build and test evidence.
+6. Verify guide geometry for portrait and landscape previews, guide visibility, bounds and Amharic labels.
+7. Generate A4 PDFs for minimum and maximum grid settings; inspect page dimensions, cell fit, image aspect ratio and cut marks.
+8. Test large image and low-memory behavior on a 3 GB physical-RAM device.
+9. Verify original source digest remains unchanged.
+10. Verify exported JPEG dimensions, orientation, decoding and metadata behavior.
+11. Run core workflow in airplane mode and inspect app-initiated network traffic.
+12. Test Amharic glyph rendering and screen-reader labels.
+13. Record exact build toolchain, APK hash, device SKU, OS build and test evidence.
 
 ## 6. Stage status
 
