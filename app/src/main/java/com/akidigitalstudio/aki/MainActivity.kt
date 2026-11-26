@@ -12,7 +12,9 @@ import android.provider.MediaStore
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
+import android.text.InputType
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -32,6 +34,8 @@ class MainActivity : Activity() {
     private var cropRatio: Float? = null
     private var outputWidthPx: Int? = null
     private var outputHeightPx: Int? = null
+    private var resizeMaxWidthPx: Int? = null
+    private var resizeMaxHeightPx: Int? = null
     private var cropLabel: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,6 +86,7 @@ class MainActivity : Activity() {
 
         val row2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         row2.addView(actionButton(if (english) "Crop" else "ቁረጥ") { chooseCrop() }, weighted())
+        row2.addView(actionButton(if (english) "Resize" else "መጠን ቀይር") { chooseResize() }, weighted())
         row2.addView(actionButton(if (english) "ID / Passport" else "መታወቂያ / ፓስፖርት") { chooseIdPreset() }, weighted())
         page.addView(row2)
 
@@ -181,10 +186,20 @@ class MainActivity : Activity() {
             }
             val targetW = outputWidthPx
             val targetH = outputHeightPx
-            if (targetW != null && targetH != null && maxEdge > PREVIEW_MAX_EDGE) {
-                val resized = ImageEditorEngine.resize(image, targetW, targetH)
-                image.recycle()
-                image = resized
+            if (maxEdge > PREVIEW_MAX_EDGE) {
+                val customW = resizeMaxWidthPx
+                val customH = resizeMaxHeightPx
+                val resized = when {
+                    customW != null && customH != null ->
+                        ImageEditorEngine.resizeWithin(image, customW, customH)
+                    targetW != null && targetH != null ->
+                        ImageEditorEngine.resize(image, targetW, targetH)
+                    else -> null
+                }
+                if (resized != null) {
+                    image.recycle()
+                    image = resized
+                }
             }
             return image
         } catch (error: Exception) {
@@ -207,11 +222,59 @@ class MainActivity : Activity() {
                 cropRatio = ratios[which]
                 outputWidthPx = null
                 outputHeightPx = null
+                resizeMaxWidthPx = null
+                resizeMaxHeightPx = null
                 cropLabel = if (which == 0) null else labels[which]
                 refreshPreview()
             }
             .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
             .show()
+    }
+
+    private fun chooseResize() {
+        if (sourceUri == null) return noPhoto()
+        val fields = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+        }
+        val widthInput = EditText(this).apply {
+            hint = if (english) "Maximum width (px)" else "ከፍተኛ ስፋት (px)"
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText((resizeMaxWidthPx ?: 1600).toString())
+        }
+        val heightInput = EditText(this).apply {
+            hint = if (english) "Maximum height (px)" else "ከፍተኛ ቁመት (px)"
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText((resizeMaxHeightPx ?: 1600).toString())
+        }
+        fields.addView(widthInput)
+        fields.addView(heightInput)
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(if (english) "Resize within bounds" else "የፎቶ መጠን ቀይር")
+            .setMessage(if (english) "The image keeps its current aspect ratio and fits inside these pixel limits." else "የፎቶው ርዝመትና ስፋት ግንኙነት ሳይቀየር በተሰጡት የፒክስል ገደቦች ውስጥ ይገባል።")
+            .setView(fields)
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Apply" else "ተግብር", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val width = widthInput.text.toString().toIntOrNull()
+                val height = heightInput.text.toString().toIntOrNull()
+                if (width == null || height == null || width !in 1..4096 || height !in 1..4096 ||
+                    width.toLong() * height.toLong() > 4_000_000L) {
+                    showStatus(if (english) "Enter valid pixel limits (1–4096; maximum 4 million pixels)." else "ትክክለኛ የፒክስል መጠን ያስገቡ (1–4096፤ ከ4 ሚሊዮን ፒክስል አይበልጥም)።")
+                    return@setOnClickListener
+                }
+                resizeMaxWidthPx = width
+                resizeMaxHeightPx = height
+                outputWidthPx = null
+                outputHeightPx = null
+                cropLabel = "Resize ≤ ${width}×${height} px"
+                dialog.dismiss()
+                refreshPreview()
+            }
+        }
+        dialog.show()
     }
 
     private fun chooseIdPreset() {
@@ -231,6 +294,8 @@ class MainActivity : Activity() {
                         cropRatio = null
                         outputWidthPx = null
                         outputHeightPx = null
+                        resizeMaxWidthPx = null
+                        resizeMaxHeightPx = null
                         cropLabel = null
                         refreshPreview()
                     }
@@ -244,6 +309,8 @@ class MainActivity : Activity() {
         cropRatio = ratio
         outputWidthPx = width
         outputHeightPx = height
+        resizeMaxWidthPx = null
+        resizeMaxHeightPx = null
         cropLabel = label
         refreshPreview()
     }
@@ -267,6 +334,8 @@ class MainActivity : Activity() {
         cropRatio = null
         outputWidthPx = null
         outputHeightPx = null
+        resizeMaxWidthPx = null
+        resizeMaxHeightPx = null
         cropLabel = null
     }
 
