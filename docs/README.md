@@ -17,6 +17,7 @@ This directory contains controlled product, architecture, governance, and verifi
 - `implementation/AKIDS-A3-SEG-MODEL-PIN-001-v0.1.0.md` — exact MediaPipe Selfie Segmenter candidate artifact, SHA-256, GCS generation, LiteRT runtime floor, and acquisition/integration gates.
 - `implementation/AKIDS-A3-SEG-LITERT-001-v0.1.0.md` — optional LiteRT CPU adapter source integration, missing binary asset, fallback behavior, and verification gates.
 - `implementation/AKIDS-A3-SEG-ASYNC-001-v0.1.0.md` — asynchronous local segmentation, request invalidation, bitmap ownership, stale-result disposal, and lifecycle safeguards.
+- `implementation/AKIDS-A3-SPEC-VALIDATION-001-v0.1.0.md` — fail-closed official-photo provenance, HTTPS source, ISO-date, effective-date validation, and authored JVM tests.
 
 ## Controlled baseline records
 
