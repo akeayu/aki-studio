@@ -40,12 +40,20 @@ object ImageEditorEngine {
         }
         val left = (source.width - cropWidth) / 2
         val top = (source.height - cropHeight) / 2
+        if (cropWidth == source.width && cropHeight == source.height) {
+            return source.copy(Bitmap.Config.ARGB_8888, false)
+                ?: throw IllegalStateException("Could not copy crop bitmap")
+        }
         return Bitmap.createBitmap(source, left, top, cropWidth, cropHeight)
     }
 
     fun resize(source: Bitmap, width: Int, height: Int): Bitmap {
         require(width > 0 && height > 0) { "Target dimensions must be positive" }
         require(width.toLong() * height.toLong() <= 4_000_000L) { "Target image exceeds the safe pixel limit" }
+        if (source.width == width && source.height == height) {
+            return source.copy(Bitmap.Config.ARGB_8888, false)
+                ?: throw IllegalStateException("Could not copy resize bitmap")
+        }
         return Bitmap.createScaledBitmap(source, width, height, true)
     }
 
