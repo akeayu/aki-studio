@@ -30,11 +30,13 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 - Rotate by 90-degree increments.
 - Crop to original, 1:1, 3:4, 4:5, 5:4, or 16:9 aspect ratios.
 - Choose crop alignment from a nine-position grid.
+- Fine crop with a draggable frame and corner handles; crop bounds are normalized, non-destructive and saved in editable projects.
 - Resize within maximum width/height pixel bounds while preserving aspect ratio and avoiding upscaling.
 - Apply or remove monochrome effect.
 - Adjust brightness, contrast, saturation and warmth with bounded CPU-only processing; values are stored in the project edit recipe and re-rendered from the original.
 - Reset edits while preserving the source.
 - Save a new JPEG copy (quality 94) or lossless PNG under `Pictures/Aki Studio`; PNG retains alpha when present in the edited bitmap.
+- Name each JPEG/PNG export and A4 PDF print sheet yourself, or save a reusable local filename pattern using the `{type}` and `{date}` tokens.
 
 ### ID/passport preparation
 - Dimension presets: 35 × 45 mm (413 × 531 px) and 2 × 2 inch (600 × 600 px), calculated for 300 DPI.
