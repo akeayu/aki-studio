@@ -488,7 +488,7 @@ class MainActivity : Activity() {
                 "ይህ በተጠቃሚ የሚዘጋጅ መመሪያ ብቻ ነው። የሰጪ ባለሥልጣን ወይም የተረጋገጠ ይፋዊ መስፈርት አልተገለጸም። የሚታዩት መመሪያዎች የማረጋገጫ ማስረጃ አይደሉም።"
             textSize = 13f
         })
-        listOf(nameInput, widthInput, heightInput, headInput, eyeInput).forEach(fields::addView)
+        listOf(nameInput, widthInput, heightInput, headInput, eyeInput).forEach { fields.addView(it) }
         val dialog = AlertDialog.Builder(this)
             .setTitle(if (english) "User-defined photo template" else "በተጠቃሚ የሚዘጋጅ የፎቶ መመሪያ")
             .setView(fields)
@@ -508,9 +508,23 @@ class MainActivity : Activity() {
                     showStatus(if (english) "Enter a name, width 10–100 mm, height 10–150 mm, head 40–90%, and eye line 20–70%." else "ስም፣ ስፋት 10–100 ሚሜ፣ ቁመት 10–150 ሚሜ፣ ጭንቅላት 40–90% እና የዓይን መስመር 20–70% ያስገቡ።")
                     return@setOnClickListener
                 }
-                val ratio = widthMm.toFloat() / heightMm.toFloat()
-                val widthPx = (widthMm / 25.4f * 300f).toInt().coerceAtLeast(1)
-                val heightPx = (heightMm / 25.4f * 300f).toInt().coerceAtLeast(1)
+                val spec = OfficialPhotoSpecEngine.PhotoSpec(
+                    id = "user-" + name.hashCode().toUInt().toString(16),
+                    displayName = name,
+                    widthMm = widthMm,
+                    heightMm = heightMm,
+                    headHeightPercent = head,
+                    eyeLineFromTopPercent = eye,
+                    provenance = OfficialPhotoSpecEngine.Provenance.USER_DEFINED
+                )
+                val validation = OfficialPhotoSpecEngine.validate(spec)
+                if (!validation.valid || validation.officialComplianceMayBeClaimed) {
+                    showStatus(if (english) "Template validation failed. User-defined templates cannot claim official compliance." else "የመመሪያው ማረጋገጫ አልተሳካም። በተጠቃሚ የተዘጋጀ መመሪያ ይፋዊ መስፈርት ነው ማለት አይቻልም።")
+                    return@setOnClickListener
+                }
+                val ratio = spec.widthMm.toFloat() / spec.heightMm.toFloat()
+                val widthPx = OfficialPhotoSpecEngine.pixelsAt300Dpi(spec.widthMm)
+                val heightPx = OfficialPhotoSpecEngine.pixelsAt300Dpi(spec.heightMm)
                 if (widthPx.toLong() * heightPx.toLong() > 4_000_000L) {
                     showStatus(if (english) "Template output exceeds the safe pixel limit." else "የመመሪያው የፒክስል ውጤት የደህንነት ገደብን አልፏል።")
                     return@setOnClickListener
