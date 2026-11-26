@@ -71,6 +71,7 @@ class MainActivity : Activity() {
     private var segmentationFuture: Future<*>? = null
     private var segmentationRequestId = 0
     private val editHistory = EditHistory()
+    private val designLayers = mutableListOf<DesignLayer>()
     private var suppressHistoryRecording = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -172,6 +173,14 @@ class MainActivity : Activity() {
         panel("Print Studio", "የህትመት ስቱዲዮ", "Arrange repeat-ready photo sheets", "ለህትመት የተዘጋጁ ፎቶዎችን አደራጅ",
             listOf(
                 action("▤", "A4 print sheet", "የA4 ህትመት ወረቀት", "PDF with cut guides", "PDF ከመቁረጫ መመሪያ ጋር") { configurePrintSheet() }
+            )
+        )
+
+        panel("Design Studio", "የዲዛይን ስቱዲዮ", "Editable layers, type and vector elements", "ሊስተካከሉ የሚችሉ ንብርብሮች፣ ጽሑፍና ቬክተር",
+            listOf(
+                action("T", "Add typography", "ጽሑፍ ጨምር", "Headlines and captions", "ርዕስና መግለጫ") { addTextLayer() },
+                action("◇", "Add vector shape", "ቬክተር ቅርጽ ጨምር", "Rectangle, ellipse, line", "አራት ማዕዘን፣ ክብ፣ መስመር") { addShapeLayer() },
+                action("▤", "Manage layers", "ንብርብሮችን አስተዳድር", "Order, visibility, lock", "ቅደም ተከተል፣ ታይነት፣ ቁልፍ") { manageDesignLayers() }
             )
         )
 
@@ -305,6 +314,9 @@ class MainActivity : Activity() {
                     image = resized
                 }
             }
+            val composited = DesignLayerRenderer.composite(image, designLayers)
+            image.recycle()
+            image = composited
             return image
         } catch (error: Exception) {
             image.recycle()
@@ -541,6 +553,7 @@ class MainActivity : Activity() {
         cropHorizontal = 0.5f
         cropVertical = 0.5f
         backgroundReplaceEnabled = false
+        designLayers.clear()
         autoMaskBitmap?.recycle(); autoMaskBitmap = null
         autoPreviewBitmap?.recycle(); autoPreviewBitmap = null
         if (::maskOverlay.isInitialized) { maskOverlay.clearMask(); maskOverlay.configure(previewBitmap, false) }
@@ -632,7 +645,8 @@ class MainActivity : Activity() {
         "resizeMaxHeightPx" to (resizeMaxHeightPx?.toString() ?: ""),
         "cropLabel" to (cropLabel ?: ""),
         "cropHorizontal" to cropHorizontal.toString(),
-        "cropVertical" to cropVertical.toString()
+        "cropVertical" to cropVertical.toString(),
+        "designLayers" to DesignLayerDocument.encode(designLayers)
     )
 
     private fun applyHistorySettings(values: Map<String, String>) {
@@ -654,6 +668,8 @@ class MainActivity : Activity() {
         cropLabel = values["cropLabel"]?.takeIf { it.isNotBlank() }
         cropHorizontal = values["cropHorizontal"]?.toFloatOrNull()?.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0.5f
         cropVertical = values["cropVertical"]?.toFloatOrNull()?.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0.5f
+        designLayers.clear()
+        designLayers.addAll(DesignLayerDocument.decode(values["designLayers"]))
     }
 
     private fun undoEdit() {
@@ -682,6 +698,177 @@ class MainActivity : Activity() {
         showStatus(if (english) "Edit restored." else "ለውጡ እንደገና ተተግብሯል።")
     }
 
+
+
+    private fun addTextLayer() {
+        if (sourceUri == null) return noPhoto()
+        if (designLayers.size >= DesignLayerDocument.MAX_LAYERS) {
+            showStatus(if (english) "Layer limit reached (30)." else "የንብርብር ገደብ ደርሷል (30)።")
+            return
+        }
+        val content = EditText(this).apply {
+            hint = if (english) "Enter text (up to 500 characters)" else "ጽሑፍ ያስገቡ (እስከ 500 ፊደል)"
+            minLines = 2
+            maxLines = 5
+            setText(if (english) "A New Way to Create" else "አዲስ የፈጠራ መንገድ")
+        }
+        val bold = CheckBox(this).apply { text = if (english) "Bold" else "ደማቅ"; isChecked = true }
+        val italic = CheckBox(this).apply { text = if (english) "Italic" else "ሰያፍ" }
+        val fields = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+            addView(content); addView(bold); addView(italic)
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(if (english) "Create text layer" else "የጽሑፍ ንብርብር ፍጠር")
+            .setView(fields)
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Add layer" else "ንብርብር ጨምር", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val text = content.text.toString().trim()
+                if (text.isBlank() || text.length > 500) {
+                    showStatus(if (english) "Text must contain 1–500 characters." else "ጽሑፉ 1–500 ፊደል መሆን አለበት።")
+                    return@setOnClickListener
+                }
+                designLayers += DesignLayer(
+                    name = "Text ${designLayers.count { it.kind == "TEXT" } + 1}",
+                    kind = "TEXT", text = text, bold = bold.isChecked, italic = italic.isChecked
+                )
+                dialog.dismiss()
+                refreshPreview()
+                showStatus(if (english) "Editable text layer added." else "ሊስተካከል የሚችል የጽሑፍ ንብርብር ተጨምሯል።")
+            }
+        }
+        dialog.show()
+    }
+
+    private fun addShapeLayer() {
+        if (sourceUri == null) return noPhoto()
+        if (designLayers.size >= DesignLayerDocument.MAX_LAYERS) {
+            showStatus(if (english) "Layer limit reached (30)." else "የንብርብር ገደብ ደርሷል (30)።")
+            return
+        }
+        val shapes = arrayOf("Rectangle", "Ellipse", "Line")
+        val types = arrayOf("RECTANGLE", "ELLIPSE", "LINE")
+        AlertDialog.Builder(this)
+            .setTitle(if (english) "Choose vector primitive" else "የቬክተር ቅርጽ ይምረጡ")
+            .setItems(shapes) { _, which ->
+                designLayers += DesignLayer(
+                    name = "${shapes[which]} ${designLayers.count { it.kind == "SHAPE" } + 1}",
+                    kind = "SHAPE", shape = types[which],
+                    fillColor = if (types[which] == "LINE") android.graphics.Color.TRANSPARENT else 0x5575E0C0,
+                    strokeColor = AkiStudioUi.MINT
+                )
+                refreshPreview()
+                showStatus(if (english) "Editable vector layer added." else "ሊስተካከል የሚችል ቬክተር ተጨምሯል።")
+            }
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .show()
+    }
+
+    private fun manageDesignLayers() {
+        if (sourceUri == null) return noPhoto()
+        if (designLayers.isEmpty()) {
+            showStatus(if (english) "No design layers yet. Add text or a vector shape first." else "ገና ንብርብር የለም። ጽሑፍ ወይም ቬክተር ይጨምሩ።")
+            return
+        }
+        val labels = designLayers.asReversed().mapIndexed { index, layer ->
+            "${if (layer.visible) "●" else "○"}  ${if (layer.locked) "🔒" else ""}${layer.name}  ·  ${layer.kind}"
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(if (english) "Layers — top to bottom" else "ንብርብሮች — ከላይ ወደ ታች")
+            .setItems(labels) { _, reverseIndex ->
+                editDesignLayer(designLayers.lastIndex - reverseIndex)
+            }
+            .setNegativeButton(if (english) "Close" else "ዝጋ", null)
+            .show()
+    }
+
+    private fun editDesignLayer(index: Int) {
+        if (index !in designLayers.indices) return
+        val layer = designLayers[index]
+        val name = EditText(this).apply { hint = if (english) "Layer name" else "የንብርብር ስም"; setSingleLine(true); setText(layer.name) }
+        val x = EditText(this).apply { hint = "Center X (0–100%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.x * 100).toInt().toString()) }
+        val y = EditText(this).apply { hint = "Center Y (0–100%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.y * 100).toInt().toString()) }
+        val width = EditText(this).apply { hint = "Width (1–100%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.width * 100).toInt().toString()) }
+        val height = EditText(this).apply { hint = "Height (1–100%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.height * 100).toInt().toString()) }
+        val opacity = EditText(this).apply { hint = "Opacity (0–100%)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.opacity * 100).toInt().toString()) }
+        val visible = CheckBox(this).apply { text = if (english) "Visible" else "የሚታይ"; isChecked = layer.visible }
+        val locked = CheckBox(this).apply { text = if (english) "Lock layer" else "ንብርብሩን ቆልፍ"; isChecked = layer.locked }
+        val fields = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+            listOf(name, x, y, width, height, opacity, visible, locked).forEach { addView(it) }
+        }
+        val actions = arrayOf(
+            if (english) "Save properties" else "ባህሪያት አስቀምጥ",
+            if (english) "Edit text" else "ጽሑፍ አስተካክል",
+            if (english) "Move up" else "ወደ ላይ አንቀሳቅስ",
+            if (english) "Move down" else "ወደ ታች አንቀሳቅስ",
+            if (english) "Delete layer" else "ንብርብር ሰርዝ"
+        )
+        AlertDialog.Builder(this)
+            .setTitle(layer.name)
+            .setItems(actions) { _, action ->
+                when (action) {
+                    0 -> {
+                        val nx = name.text.toString().trim()
+                        val px = x.text.toString().toIntOrNull()
+                        val py = y.text.toString().toIntOrNull()
+                        val pw = width.text.toString().toIntOrNull()
+                        val ph = height.text.toString().toIntOrNull()
+                        val po = opacity.text.toString().toIntOrNull()
+                        if (nx.isBlank() || nx.length > 48 || px !in 0..100 || py !in 0..100 ||
+                            pw !in 1..100 || ph !in 1..100 || po !in 0..100) {
+                            showStatus(if (english) "Layer properties are outside their allowed ranges." else "የንብርብር ባህሪያት ከተፈቀደው ክልል ውጭ ናቸው።")
+                            return@setItems
+                        }
+                        designLayers[index] = layer.copy(
+                            name = nx, x = px!! / 100f, y = py!! / 100f,
+                            width = pw!! / 100f, height = ph!! / 100f,
+                            opacity = po!! / 100f, visible = visible.isChecked, locked = locked.isChecked
+                        ).validated()
+                        refreshPreview()
+                    }
+                    1 -> if (layer.kind == "TEXT") editLayerText(index) else showStatus(if (english) "This layer is a vector shape." else "ይህ ንብርብር ቬክተር ቅርጽ ነው።")
+                    2 -> { if (index < designLayers.lastIndex) { val item = designLayers.removeAt(index); designLayers.add(index + 1, item); refreshPreview() } }
+                    3 -> { if (index > 0) { val item = designLayers.removeAt(index); designLayers.add(index - 1, item); refreshPreview() } }
+                    4 -> AlertDialog.Builder(this)
+                        .setMessage(if (english) "Delete this design layer?" else "ይህ የዲዛይን ንብርብር ይሰረዝ?")
+                        .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+                        .setPositiveButton(if (english) "Delete" else "ሰርዝ") { _, _ ->
+                            designLayers.removeAt(index)
+                            refreshPreview()
+                        }.show()
+                }
+            }
+            .setNegativeButton(if (english) "Close" else "ዝጋ", null)
+            .setView(fields)
+            .show()
+    }
+
+    private fun editLayerText(index: Int) {
+        val layer = designLayers.getOrNull(index) ?: return
+        if (layer.locked) {
+            showStatus(if (english) "Unlock this layer before editing it." else "ከማስተካከልዎ በፊት ንብርብሩን ይክፈቱ።")
+            return
+        }
+        val input = EditText(this).apply { minLines = 2; maxLines = 6; setText(layer.text) }
+        AlertDialog.Builder(this)
+            .setTitle(if (english) "Edit typography" else "ጽሑፍ አስተካክል")
+            .setView(input)
+            .setNegativeButton(if (english) "Cancel" else "ሰርዝ", null)
+            .setPositiveButton(if (english) "Apply" else "ተግብር") { _, _ ->
+                val text = input.text.toString().trim()
+                if (text.isNotBlank() && text.length <= 500) {
+                    designLayers[index] = layer.copy(text = text).validated()
+                    refreshPreview()
+                }
+            }
+            .show()
+    }
 
     private fun saveLocalProject() {
         val uri = sourceUri ?: return noPhoto()
@@ -750,7 +937,8 @@ class MainActivity : Activity() {
         "backgroundColor" to backgroundColor.toString(),
         "headHeightPercent" to headHeightPercent.toString(),
         "eyeLinePercent" to eyeLinePercent.toString(),
-        "guidesVisible" to guidesVisible.toString()
+        "guidesVisible" to guidesVisible.toString(),
+        "designLayers" to DesignLayerDocument.encode(designLayers)
     )
 
     private fun openLocalProject() {
@@ -858,6 +1046,8 @@ class MainActivity : Activity() {
             headHeightPercent = values["headHeightPercent"]?.toIntOrNull()?.coerceIn(40, 90) ?: 70
             eyeLinePercent = values["eyeLinePercent"]?.toIntOrNull()?.coerceIn(20, 70) ?: 42
             guidesVisible = values["guidesVisible"].toBoolean()
+            designLayers.clear()
+            designLayers.addAll(DesignLayerDocument.decode(values["designLayers"]))
             autoMaskBitmap = data.mask
             previewBitmap?.recycle()
             originalPreviewBitmap?.recycle()
