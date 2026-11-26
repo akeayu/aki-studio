@@ -567,7 +567,12 @@ class MainActivity : Activity() {
     private fun runLocalForegroundEstimate() {
         if (sourceUri == null || previewBitmap == null) return noPhoto()
         try {
-            val result = LocalForegroundSegmentationEngine().segment(previewBitmap!!)
+            val bundledModel = LiteRtSelfieSegmenter.createOrNull(this)
+            val result = try {
+                LocalForegroundSegmentationEngine(model = bundledModel).segment(previewBitmap!!)
+            } finally {
+                bundledModel?.close()
+            }
             autoMaskBitmap?.recycle()
             autoPreviewBitmap?.recycle()
             autoMaskBitmap = result.foregroundMask
