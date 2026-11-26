@@ -23,6 +23,7 @@ class ManualMaskView(context: Context) : View(context) {
         val featherPercent: Float
     )
     private val strokes = mutableListOf<Stroke>()
+    private var baseMask: Bitmap? = null
     private var cursor = 0
     private var imageWidth = 0
     private var imageHeight = 0
@@ -53,7 +54,15 @@ class ManualMaskView(context: Context) : View(context) {
         if (canRedo()) { cursor++; invalidate() }
     }
 
+    fun setBaseMask(mask: Bitmap?) {
+        baseMask?.recycle()
+        baseMask = mask?.copy(Bitmap.Config.ARGB_8888, false)
+        invalidate()
+    }
+
     fun clearMask() {
+        baseMask?.recycle()
+        baseMask = null
         strokes.clear()
         cursor = 0
         invalidate()
@@ -64,6 +73,7 @@ class ManualMaskView(context: Context) : View(context) {
         val mask = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(mask)
         canvas.drawColor(Color.BLACK)
+        baseMask?.let { canvas.drawBitmap(it, null, RectF(0f, 0f, width.toFloat(), height.toFloat()), Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)) }
         drawStrokes(canvas, width.toFloat(), height.toFloat(), export = true)
         return mask
     }
@@ -138,6 +148,12 @@ class ManualMaskView(context: Context) : View(context) {
         if (imageWidth <= 0 || imageHeight <= 0) return
         val bounds = imageBounds()
         val layer = canvas.saveLayer(bounds, null)
+        baseMask?.let { mask ->
+            val tint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                colorFilter = android.graphics.PorterDuffColorFilter(Color.argb(115, 0, 160, 255), PorterDuff.Mode.SRC_IN)
+            }
+            canvas.drawBitmap(mask, null, bounds, tint)
+        }
         // Preview uses the same normalized geometry and brush widths as export.
         canvas.translate(bounds.left, bounds.top)
         drawStrokes(canvas, bounds.width(), bounds.height(), export = false)
