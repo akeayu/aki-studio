@@ -26,6 +26,29 @@ object ImageEditorEngine {
         return output
     }
 
+    fun cropCenter(source: Bitmap, aspectRatio: Float): Bitmap {
+        require(aspectRatio.isFinite() && aspectRatio > 0f) { "Aspect ratio must be positive" }
+        val sourceRatio = source.width.toFloat() / source.height.toFloat()
+        val cropWidth: Int
+        val cropHeight: Int
+        if (sourceRatio > aspectRatio) {
+            cropHeight = source.height
+            cropWidth = (cropHeight * aspectRatio).toInt().coerceIn(1, source.width)
+        } else {
+            cropWidth = source.width
+            cropHeight = (cropWidth / aspectRatio).toInt().coerceIn(1, source.height)
+        }
+        val left = (source.width - cropWidth) / 2
+        val top = (source.height - cropHeight) / 2
+        return Bitmap.createBitmap(source, left, top, cropWidth, cropHeight)
+    }
+
+    fun resize(source: Bitmap, width: Int, height: Int): Bitmap {
+        require(width > 0 && height > 0) { "Target dimensions must be positive" }
+        require(width.toLong() * height.toLong() <= 4_000_000L) { "Target image exceeds the safe pixel limit" }
+        return Bitmap.createScaledBitmap(source, width, height, true)
+    }
+
     fun copy(source: Bitmap): Bitmap =
         source.copy(Bitmap.Config.ARGB_8888, false)
 }
