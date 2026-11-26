@@ -131,7 +131,7 @@ PR #129 adds iroka-talora-api as a separate workspace crate on an unmerged branc
 
 The task crate defines an injected WorkloadAuthenticator interface. Its authenticate method receives a bearer credential and time, then returns an AuthenticatedCaller or an authentication error.
 
-The service checks the exact audience iroka-talora-api and checks tenant, workspace, project and scope against the returned caller context. The PR tests use a test authenticator. The code does not call Ed25519CredentialVerifier, TenantMembershipResolver or the G02 organization-authority resolver.
+The service checks the exact audience iroka-talora-api and checks tenant, workspace, project and scope against the returned caller context. It invokes the existing Kernel policy evaluator before capability execution; that policy seam does not replace G01 credential verification, G01 tenant resolution, G02 organization authority or tenant-specific policy partitioning. The PR tests use a test authenticator. The code does not call Ed25519CredentialVerifier, TenantMembershipResolver or the G02 organization-authority resolver.
 
 Consequently, this is an adapter seam, not evidence of G01-integrated user or workload authentication. The caller context must not be populated from untrusted request fields in a production adapter.
 
@@ -155,6 +155,7 @@ Consequently, this is an adapter seam, not evidence of G01-integrated user or wo
 - The fake adapter reports inference_performed: false; it is not generative inference.
 - Remote providers and persistent memory are denied.
 - Synthetic-only input classification is enforced.
+- The request is text/reference-oriented; there is no Aki image upload session, object store, derivative lifecycle or image-processing contract in this slice.
 - Idempotency replay and conflicting-payload behavior are tested.
 - Task metadata is held in a bounded process-local in-memory store.
 - Execution is synchronous; there is no durable worker queue, durable event replay or effective cancellation of in-flight work.
