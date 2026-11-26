@@ -15,6 +15,7 @@ This directory contains controlled product, architecture, governance, and verifi
 - `implementation/` — stage-gated implementation records and scope boundaries.
 - `implementation/AKIDS-A3-SEG-MODEL-REVIEW-001-v0.1.0.md` — offline portrait-segmentation model candidate assessment; no model adopted.
 - `implementation/AKIDS-A3-SEG-MODEL-PIN-001-v0.1.0.md` — exact MediaPipe Selfie Segmenter candidate artifact, SHA-256, GCS generation, LiteRT runtime floor, and acquisition/integration gates.
+- `implementation/AKIDS-A3-SEG-LITERT-001-v0.1.0.md` — optional LiteRT CPU adapter source integration, missing binary asset, fallback behavior, and verification gates.
 
 ## Controlled baseline records
 
