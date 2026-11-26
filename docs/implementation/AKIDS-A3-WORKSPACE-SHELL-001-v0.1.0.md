@@ -6,10 +6,11 @@ Add a persistent workspace navigation and contextual command layer around the ex
 ## Delivered
 - Horizontally scrollable workspace navigation: All, Workspace, Image Lab, Portrait & ID, Background Lab, Print Studio, Design Studio.
 - Selecting a workspace filters visible tool panels in place. It does not recreate the Activity or discard the current image, masks, layers, selection, or edit history.
-- Persistent contextual command strip exposes Undo, Redo, Before/After, Export, and (on expanded windows) Layers.
+- Persistent contextual command strip exposes Undo, Redo, Before/After, Export, Inspector toggle, and (on expanded windows) Layers.
 - Reusable toolbar buttons and selected-state navigation chips in AkiStudioUi.
 - Collapsible Inspector panel displays current selection identity, layer count and local-processing context.
 - Inspector defaults expanded on sufficiently large expanded windows and collapsed on smaller windows; users can toggle it on every window class.
+- On expanded windows, the preview canvas and inspector are positioned side-by-side; compact and medium windows retain a vertical scroll-first layout.
 - Inspector summary refreshes when canvas selection or preview state changes.
 - Existing responsive window profile continues to determine action-grid density, preview sizing, panel columns and gutters.
 
