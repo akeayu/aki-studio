@@ -26,8 +26,10 @@ object ImageEditorEngine {
         return output
     }
 
-    fun cropCenter(source: Bitmap, aspectRatio: Float): Bitmap {
+    fun cropCenter(source: Bitmap, aspectRatio: Float, horizontalAlignment: Float = 0.5f, verticalAlignment: Float = 0.5f): Bitmap {
         require(aspectRatio.isFinite() && aspectRatio > 0f) { "Aspect ratio must be positive" }
+        require(horizontalAlignment.isFinite() && horizontalAlignment in 0f..1f) { "Horizontal alignment must be between 0 and 1" }
+        require(verticalAlignment.isFinite() && verticalAlignment in 0f..1f) { "Vertical alignment must be between 0 and 1" }
         val sourceRatio = source.width.toFloat() / source.height.toFloat()
         val cropWidth: Int
         val cropHeight: Int
@@ -38,8 +40,8 @@ object ImageEditorEngine {
             cropWidth = source.width
             cropHeight = (cropWidth / aspectRatio).toInt().coerceIn(1, source.height)
         }
-        val left = (source.width - cropWidth) / 2
-        val top = (source.height - cropHeight) / 2
+        val left = ((source.width - cropWidth) * horizontalAlignment).toInt().coerceIn(0, source.width - cropWidth)
+        val top = ((source.height - cropHeight) * verticalAlignment).toInt().coerceIn(0, source.height - cropHeight)
         if (cropWidth == source.width && cropHeight == source.height) {
             return source.copy(Bitmap.Config.ARGB_8888, false)
                 ?: throw IllegalStateException("Could not copy crop bitmap")
