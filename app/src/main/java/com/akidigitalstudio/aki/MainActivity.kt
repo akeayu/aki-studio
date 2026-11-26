@@ -798,13 +798,15 @@ class MainActivity : Activity() {
         val fillColor = EditText(this).apply { hint = "Fill/text color (#RRGGBB)"; setSingleLine(true); setText(String.format("#%06X", 0xFFFFFF and layer.fillColor)) }
         val strokeColor = EditText(this).apply { hint = "Stroke color (#RRGGBB)"; setSingleLine(true); setText(String.format("#%06X", 0xFFFFFF and layer.strokeColor)) }
         val fontScale = EditText(this).apply { hint = "Text size (1–20% of canvas)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.fontScale * 100).toInt().toString()) }
-        val strokeWidth = EditText(this).apply { hint = "Stroke width (0–8% of canvas)"; inputType = InputType.TYPE_CLASS_NUMBER; setText((layer.strokeWidth * 100).toInt().toString()) }
+        val strokeWidth = EditText(this).apply { hint = "Stroke width (0–8% of canvas)"; inputType = InputType.TYPE_CLASS_NUMBER; setText(kotlin.math.round(layer.strokeWidth * 100).toInt().toString()) }
+        val bold = CheckBox(this).apply { text = if (english) "Bold typography" else "ደማቅ ጽሑፍ"; isChecked = layer.bold; visibility = if (layer.kind == "TEXT") android.view.View.VISIBLE else android.view.View.GONE }
+        val italic = CheckBox(this).apply { text = if (english) "Italic typography" else "ሰያፍ ጽሑፍ"; isChecked = layer.italic; visibility = if (layer.kind == "TEXT") android.view.View.VISIBLE else android.view.View.GONE }
         val visible = CheckBox(this).apply { text = if (english) "Visible" else "የሚታይ"; isChecked = layer.visible }
         val locked = CheckBox(this).apply { text = if (english) "Lock layer" else "ንብርብሩን ቆልፍ"; isChecked = layer.locked }
         val fields = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(8), dp(20), 0)
-            listOf(name, x, y, width, height, opacity, fillColor, strokeColor, fontScale, strokeWidth, visible, locked).forEach { addView(it) }
+            listOf(name, x, y, width, height, opacity, fillColor, strokeColor, fontScale, strokeWidth, bold, italic, visible, locked).forEach { addView(it) }
         }
         val dialog = AlertDialog.Builder(this)
             .setTitle(layer.name)
@@ -838,6 +840,7 @@ class MainActivity : Activity() {
                     width = pw / 100f, height = ph / 100f,
                     opacity = po / 100f, fillColor = fill, strokeColor = outline,
                     fontScale = font / 100f, strokeWidth = stroke / 100f,
+                    bold = bold.isChecked, italic = italic.isChecked,
                     visible = visible.isChecked, locked = locked.isChecked
                 ).validated()
                 dialog.dismiss()
