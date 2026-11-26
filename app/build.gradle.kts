@@ -33,4 +33,6 @@ android {
 dependencies {
     // CPU Interpreter only; no GPU, NNAPI, Play Services, or network runtime.
     implementation("com.google.ai.edge.litert:litert:2.4.0")
+
+    testImplementation("junit:junit:4.13.2")
 }
