@@ -33,8 +33,12 @@ object DesignStudioOperations {
         require(translateX in -1f..1f && translateY in -1f..1f && scale in 0.1f..5f && rotateDegrees in -180f..180f)
         val selected = layers.filter { it.id in selectedIds }
         require(selected.none { it.locked }) { "Unlock selected layers before group transformation" }
-        val cx = selected.map { it.x }.average().toFloat()
-        val cy = selected.map { it.y }.average().toFloat()
+        val left = selected.minOf { it.x - it.width / 2f }
+        val right = selected.maxOf { it.x + it.width / 2f }
+        val top = selected.minOf { it.y - it.height / 2f }
+        val bottom = selected.maxOf { it.y + it.height / 2f }
+        val cx = (left + right) / 2f
+        val cy = (top + bottom) / 2f
         val radians = Math.toRadians(rotateDegrees.toDouble())
         val c = cos(radians).toFloat()
         val s = sin(radians).toFloat()
