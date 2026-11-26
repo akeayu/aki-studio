@@ -21,6 +21,10 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 ## Implemented A3 source features
 
 ### Photo editing and export
+- Save/reopen private offline editable projects with a private original-image copy and edit recipe.
+- Duplicate, rename and delete saved projects; deletion requires confirmation and never removes the external original.
+- Project source files are capped at 100 MB; persisted dimensions, crop settings and mask state are validated when opening.
+- Current flattened foreground mask is retained; per-stroke mask history is not yet persisted.
 - Choose an image using Android's system document picker.
 - Bounded software-bitmap decoding for preview and export.
 - Rotate by 90-degree increments.
@@ -66,7 +70,7 @@ Open the repository root in Android Studio, sync the local Gradle/Android SDK to
 ## Known limitations
 
 - No actual Gradle build, APK, emulator installation, or physical-device test has been recorded.
-- No full-resolution non-destructive project format, layers, project history, camera capture, batch processing, or advanced portrait retouching yet.
+- No layered project format, per-stroke mask history, autosave/recovery journal, camera capture, batch processing, or advanced portrait retouching yet.
 - Background segmentation currently depends on a low-confidence border-colour heuristic; manual inspection and correction are required.
 - The optional LiteRT model binary is not present and has not been checksum-verified or licensed into this repository.
 - Current LiteRT adapter stretches non-square images to its square tensor input; aspect-ratio-aware preprocessing requires further evaluation.
