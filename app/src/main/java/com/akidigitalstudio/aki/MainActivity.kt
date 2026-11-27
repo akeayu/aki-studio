@@ -126,7 +126,11 @@ class MainActivity : Activity() {
                     foldBounds = nextBounds
                     foldSeparating = nextSeparating
                     foldOrientation = nextOrientation
-                    if (!isFinishing && !isDestroyed) {
+                    // Fold geometry changes only affect the expanded split-shell layout.
+                    // Rebuilding the entire scroll-first UI on medium/compact windows causes
+                    // unnecessary WindowManager relayouts while the foldable is changing posture.
+                    if (!isFinishing && !isDestroyed &&
+                        AdaptiveUiProfile.from(this).widthClass == WindowWidthClass.EXPANDED) {
                         buildScreen()
                         renderPreview()
                     }
