@@ -110,13 +110,22 @@ jobs:
         if: matrix.kind == 'compact'
         run: |
           set -euo pipefail
+          # Pin AVD creation and emulator lookup to the same directory. GitHub-hosted
+          # images can expose different Android SDK home defaults to avdmanager/emulator.
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/android-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force -n test --package 'system-images;android-34;default;x86_64' --device '5.4in FWVGA'
+          if [ ! -f "$ANDROID_AVD_HOME/test.ini" ]; then
+            echo "AVD creation did not produce $ANDROID_AVD_HOME/test.ini"
+            find "$RUNNER_TEMP" -maxdepth 4 -name test.ini -print || true
+            exit 1
+          fi
           adb start-server
-          echo "Launching AVD; emulator binary: $ANDROID_HOME/emulator/emulator"
-          "$ANDROID_HOME/emulator/emulator" -avd test -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -accel off > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          echo "Launching AVD from $ANDROID_AVD_HOME; emulator binary: $ANDROID_HOME/emulator/emulator"
+          ANDROID_I_WANT_MY_TCG=yes "$ANDROID_HOME/emulator/emulator" -avd test -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -accel off > "$RUNNER_TEMP/emulator.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/emulator.pid"
-          echo "Waiting up to five minutes for ADB device discovery."
-          timeout 300 adb -s emulator-5554 wait-for-device
+          echo "Waiting up to ten minutes for ADB device discovery."
+          timeout 600 adb -s emulator-5554 wait-for-device
 
           booted=0
           for attempt in $(seq 1 450); do
@@ -148,13 +157,22 @@ jobs:
         if: matrix.kind == 'foldable'
         run: |
           set -euo pipefail
+          # Pin AVD creation and emulator lookup to the same directory. GitHub-hosted
+          # images can expose different Android SDK home defaults to avdmanager/emulator.
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/android-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force -n test --package 'system-images;android-34;default;x86_64' --device '7.6in Foldable'
+          if [ ! -f "$ANDROID_AVD_HOME/test.ini" ]; then
+            echo "AVD creation did not produce $ANDROID_AVD_HOME/test.ini"
+            find "$RUNNER_TEMP" -maxdepth 4 -name test.ini -print || true
+            exit 1
+          fi
           adb start-server
-          echo "Launching AVD; emulator binary: $ANDROID_HOME/emulator/emulator"
-          "$ANDROID_HOME/emulator/emulator" -avd test -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -accel off > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          echo "Launching AVD from $ANDROID_AVD_HOME; emulator binary: $ANDROID_HOME/emulator/emulator"
+          ANDROID_I_WANT_MY_TCG=yes "$ANDROID_HOME/emulator/emulator" -avd test -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -accel off > "$RUNNER_TEMP/emulator.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/emulator.pid"
-          echo "Waiting up to five minutes for ADB device discovery."
-          timeout 300 adb -s emulator-5554 wait-for-device
+          echo "Waiting up to ten minutes for ADB device discovery."
+          timeout 600 adb -s emulator-5554 wait-for-device
 
           booted=0
           for attempt in $(seq 1 450); do
