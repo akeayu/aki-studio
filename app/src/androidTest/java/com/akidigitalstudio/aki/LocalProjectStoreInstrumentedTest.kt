@@ -74,8 +74,11 @@ class MainActivityWindowInstrumentedTest {
     fun workspaceStartsAndMatchesRequestedWindowClass() {
         val expected = InstrumentationRegistry.getArguments().getString("expectedWidthClass")
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            // waitForIdleSync must run from the instrumentation thread, not inside onActivity's
+            // main-thread callback. Calling it there throws "This method can not be called
+            // from the main application thread" on real emulator execution.
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
             scenario.onActivity { host ->
-                InstrumentationRegistry.getInstrumentation().waitForIdleSync()
                 val content = host.findViewById<ViewGroup>(android.R.id.content)
                 assertNotNull("Activity content root was not created", content)
                 assertTrue("Workspace content is empty", content.childCount > 0)
