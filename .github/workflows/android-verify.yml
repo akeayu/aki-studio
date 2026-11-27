@@ -71,10 +71,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: unit-and-build
     timeout-minutes: 45
-    env:
-      # GitHub-hosted Linux runners do not expose KVM; explicitly permit the
-      # Android Emulator's TCG software CPU backend instead of failing at boot.
-      ANDROID_I_WANT_MY_TCG: "yes"
     strategy:
       fail-fast: false
       matrix:
@@ -107,56 +103,112 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Install Android 36 build platform
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+      - name: Install Android 36 build platform and API 34 emulator
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" "emulator" "system-images;android-34;default;x86_64"
 
       - name: Verify compact phone layout
         if: matrix.kind == 'compact'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          target: default
-          arch: x86_64
-          profile: ${{ matrix.profile }}
-          # swiftshader_indirect is deprecated in current emulator releases; use the supported
-          # SwiftShader renderer to avoid color-buffer failures on software-rendered CI runners.
-          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
-          # The runner's post-boot settings writes intermittently lose ADB on TCG hosts.
-          # Leave system animations enabled rather than failing before instrumentation starts.
-          disable-animations: false
-          script: gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectedWidthClass=compact
+        run: |
+          set -euo pipefail
+          echo no | avdmanager create avd --force -n test --package 'system-images;android-34;default;x86_64' --device '5.4in FWVGA'
+          adb start-server
+          emulator -avd test -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -accel off > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/emulator.pid"
+          timeout 120 adb -s emulator-5554 wait-for-device
+
+          booted=0
+          for attempt in $(seq 1 450); do
+            state="$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+            if [ "$state" = "1" ]; then booted=1; break; fi
+            sleep 2
+          done
+          if [ "$booted" -ne 1 ]; then
+            echo "Emulator did not complete boot within 15 minutes."
+            tail -n 120 "$RUNNER_TEMP/emulator.log" || true
+            exit 1
+          fi
+
+          package_ready=0
+          for attempt in $(seq 1 60); do
+            if adb -s emulator-5554 shell pm path android >/dev/null 2>&1; then package_ready=1; break; fi
+            sleep 2
+          done
+          if [ "$package_ready" -ne 1 ]; then
+            echo "Android package manager did not become ready."
+            tail -n 120 "$RUNNER_TEMP/emulator.log" || true
+            exit 1
+          fi
+
+          adb -s emulator-5554 shell pm path android
+          ANDROID_SERIAL=emulator-5554 gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectedWidthClass=compact
 
       - name: Verify foldable open, half-open and folded postures
         if: matrix.kind == 'foldable'
-        uses: reactivecircus/android-emulator-runner@v2
+        run: |
+          set -euo pipefail
+          echo no | avdmanager create avd --force -n test --package 'system-images;android-34;default;x86_64' --device '7.6in Foldable'
+          adb start-server
+          emulator -avd test -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -accel off > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/emulator.pid"
+          timeout 120 adb -s emulator-5554 wait-for-device
+
+          booted=0
+          for attempt in $(seq 1 450); do
+            state="$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+            if [ "$state" = "1" ]; then booted=1; break; fi
+            sleep 2
+          done
+          if [ "$booted" -ne 1 ]; then
+            echo "Foldable emulator did not complete boot within 15 minutes."
+            tail -n 120 "$RUNNER_TEMP/emulator.log" || true
+            exit 1
+          fi
+
+          package_ready=0
+          for attempt in $(seq 1 60); do
+            if adb -s emulator-5554 shell pm path android >/dev/null 2>&1; then package_ready=1; break; fi
+            sleep 2
+          done
+          if [ "$package_ready" -ne 1 ]; then
+            echo "Android package manager did not become ready on foldable emulator."
+            tail -n 120 "$RUNNER_TEMP/emulator.log" || true
+            exit 1
+          fi
+
+          adb -s emulator-5554 shell pm path android
+          adb -s emulator-5554 emu unfold
+          sleep 3
+          ANDROID_SERIAL=emulator-5554 gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectedWidthClass=medium
+
+          states="$(adb -s emulator-5554 shell cmd device_state print-states)"
+          echo "$states"
+          half_open_id="$(echo "$states" | grep -oE "identifier=[0-9]+, name='(HALF_OPENED|HALF_FOLDED|TENT)'" | head -n 1 | cut -d= -f2 | cut -d, -f1)"
+          if [ -z "$half_open_id" ]; then
+            echo "Foldable emulator does not expose a half-open device state."
+            exit 1
+          fi
+          adb -s emulator-5554 shell cmd device_state state "$half_open_id"
+          sleep 3
+          ANDROID_SERIAL=emulator-5554 gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectedWidthClass=medium -Pandroid.testInstrumentationRunnerArguments.expectFoldingFeature=true
+
+          adb -s emulator-5554 emu fold
+          sleep 3
+          ANDROID_SERIAL=emulator-5554 gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectedWidthClass=compact
+
+      - name: Capture emulator diagnostics
+        if: always()
+        run: |
+          adb -s emulator-5554 devices 2>&1 > "$RUNNER_TEMP/adb-devices.txt" || true
+          adb -s emulator-5554 logcat -d -t 5000 > "$RUNNER_TEMP/emulator-logcat.txt" 2>&1 || true
+          adb -s emulator-5554 emu kill || true
+
+      - name: Upload emulator diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          api-level: 34
-          target: default
-          arch: x86_64
-          profile: ${{ matrix.profile }}
-          # swiftshader_indirect is deprecated in current emulator releases; use the supported
-          # SwiftShader renderer to avoid color-buffer failures on software-rendered CI runners.
-          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
-          # The runner's post-boot settings writes intermittently lose ADB on TCG hosts.
-          # Leave system animations enabled rather than failing before instrumentation starts.
-          disable-animations: false
-          script: |
-            set -euo pipefail
-            adb emu unfold
-            sleep 3
-            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectedWidthClass=medium
-
-            states="$(adb shell cmd device_state print-states)"
-            echo "$states"
-            half_open_id="$(echo "$states" | grep -oE "identifier=[0-9]+, name='(HALF_OPENED|HALF_FOLDED|TENT)'" | head -n 1 | cut -d= -f2 | cut -d, -f1)"
-            if [ -z "$half_open_id" ]; then
-              echo "Foldable emulator does not expose a half-open device state."
-              exit 1
-            fi
-            adb shell cmd device_state state "$half_open_id"
-            sleep 3
-            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectedWidthClass=medium -Pandroid.testInstrumentationRunnerArguments.expectFoldingFeature=true
-
-            adb emu fold
-            sleep 3
-            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectedWidthClass=compact
+          name: emulator-diagnostics-${{ matrix.kind }}
+          path: |
+            ${{ runner.temp }}/emulator.log
+            ${{ runner.temp }}/emulator-logcat.txt
+            ${{ runner.temp }}/adb-devices.txt
+          if-no-files-found: ignore
