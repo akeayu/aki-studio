@@ -1,24 +1,33 @@
 package com.akidigitalstudio.aki
 
 import android.graphics.Bitmap
-import android.test.AndroidTestCase
-import android.test.ActivityInstrumentationTestCase2
 import android.view.ViewGroup
+import androidx.test.core.app.ActivityScenario
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.core.util.Consumer
 import androidx.window.java.layout.WindowInfoTrackerCallbackAdapter
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import androidx.window.layout.WindowLayoutInfo
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
 
 /** Device-side regression: private project save/reopen must preserve styled text and vector paths. */
-class LocalProjectStoreInstrumentedTest : AndroidTestCase() {
-    fun testProjectSaveAndReopenPreservesDesignLayers() {
+@RunWith(AndroidJUnit4::class)
+class LocalProjectStoreInstrumentedTest {
+    @Test
+    fun projectSaveAndReopenPreservesDesignLayers() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
         val bitmap = Bitmap.createBitmap(24, 24, Bitmap.Config.ARGB_8888)
         val encoded = ByteArrayOutputStream().use { output ->
             assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output))
@@ -58,44 +67,66 @@ class LocalProjectStoreInstrumentedTest : AndroidTestCase() {
     }
 }
 
-
 /** Device/emulator smoke coverage for compact, unfolded and half-open foldable windows. */
-class MainActivityWindowInstrumentedTest :
-    ActivityInstrumentationTestCase2<MainActivity>(MainActivity::class.java) {
+@RunWith(AndroidJUnit4::class)
+class MainActivityWindowInstrumentedTest {
+    @Test
+    fun workspaceStartsAndMatchesRequestedWindowClass() {
+        val expected = InstrumentationRegistry.getArguments().getString("expectedWidthClass")
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { host ->
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+                val content = host.findViewById<ViewGroup>(android.R.id.content)
+                assertNotNull("Activity content root was not created", content)
+                assertTrue("Workspace content is empty", content.childCount > 0)
 
-    fun testWorkspaceStartsAndMatchesRequestedWindowClass() {
-        val host = getActivity()
-        getInstrumentation().waitForIdleSync()
-        val content = host.findViewById<ViewGroup>(android.R.id.content)
-        assertNotNull("Activity content root was not created", content)
-        assertTrue("Workspace content is empty", content.childCount > 0)
-
-        val expected = getInstrumentation().arguments.getString("expectedWidthClass")
-        if (!expected.isNullOrBlank()) {
-            val actual = AdaptiveUiProfile.from(host).widthClass.name.lowercase()
-            assertEquals("Unexpected adaptive width class", expected.lowercase(), actual)
+                if (!expected.isNullOrBlank()) {
+                    val actual = AdaptiveUiProfile.from(host).widthClass.name.lowercase()
+                    assertEquals("Unexpected adaptive width class", expected.lowercase(), actual)
+                }
+            }
         }
     }
 
-    fun testHalfOpenFoldIsDeliveredAsSeparatingFeatureWhenRequested() {
-        if (getInstrumentation().arguments.getString("expectFoldingFeature") != "true") return
+    @Test
+    fun halfOpenFoldIsDeliveredAsSeparatingFeatureWhenRequested() {
+        if (InstrumentationRegistry.getArguments().getString("expectFoldingFeature") != "true") return
 
-        val host = getActivity()
-        val tracker = WindowInfoTrackerCallbackAdapter(WindowInfoTracker.getOrCreate(host))
         val received = CountDownLatch(1)
         val foldingFeature = AtomicReference<FoldingFeature?>()
-        val listener = Consumer<WindowLayoutInfo> { layout ->
-            foldingFeature.set(layout.displayFeatures.filterIsInstance<FoldingFeature>().firstOrNull())
-            received.countDown()
-        }
-        tracker.addWindowLayoutInfoListener(host, Executor { command -> command.run() }, listener)
-        try {
-            assertTrue("WindowManager did not publish layout information", received.await(10, TimeUnit.SECONDS))
-            val feature = foldingFeature.get()
-            assertNotNull("No folding feature was reported in half-open posture", feature)
-            assertTrue("Half-open hinge must separate the window", feature!!.isSeparating)
-        } finally {
-            tracker.removeWindowLayoutInfoListener(listener)
+        val trackerRef = AtomicReference<WindowInfoTrackerCallbackAdapter?>()
+        val listenerRef = AtomicReference<Consumer<WindowLayoutInfo>?>()
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { host ->
+                val tracker = WindowInfoTrackerCallbackAdapter(WindowInfoTracker.getOrCreate(host))
+                val listener = Consumer<WindowLayoutInfo> { layout ->
+                    foldingFeature.set(layout.displayFeatures.filterIsInstance<FoldingFeature>().firstOrNull())
+                    received.countDown()
+                }
+                trackerRef.set(tracker)
+                listenerRef.set(listener)
+                tracker.addWindowLayoutInfoListener(
+                    host,
+                    Executor { command -> host.runOnUiThread(command) },
+                    listener
+                )
+            }
+
+            try {
+                assertTrue("WindowManager did not publish layout information", received.await(10, TimeUnit.SECONDS))
+                val feature = foldingFeature.get()
+                assertNotNull("No folding feature was reported in half-open posture", feature)
+                assertTrue("Half-open hinge must separate the window", feature!!.isSeparating)
+            } finally {
+                scenario.onActivity {
+                    val tracker = trackerRef.get()
+                    val listener = listenerRef.get()
+                    if (tracker != null && listener != null) {
+                        tracker.removeWindowLayoutInfoListener(listener)
+                    }
+                }
+            }
         }
     }
 }
