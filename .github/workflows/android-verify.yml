@@ -121,6 +121,9 @@ jobs:
           # swiftshader_indirect is deprecated in current emulator releases; use the supported
           # SwiftShader renderer to avoid color-buffer failures on software-rendered CI runners.
           emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
+          # The runner's post-boot settings writes intermittently lose ADB on TCG hosts.
+          # Leave system animations enabled rather than failing before instrumentation starts.
+          disable-animations: false
           script: gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.expectedWidthClass=compact
 
       - name: Verify foldable open, half-open and folded postures
@@ -134,6 +137,9 @@ jobs:
           # swiftshader_indirect is deprecated in current emulator releases; use the supported
           # SwiftShader renderer to avoid color-buffer failures on software-rendered CI runners.
           emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
+          # The runner's post-boot settings writes intermittently lose ADB on TCG hosts.
+          # Leave system animations enabled rather than failing before instrumentation starts.
+          disable-animations: false
           script: |
             set -euo pipefail
             adb emu unfold
