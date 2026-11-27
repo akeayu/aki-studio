@@ -110,11 +110,13 @@ jobs:
         if: matrix.kind == 'compact'
         run: |
           set -euo pipefail
-          echo no | avdmanager create avd --force -n test --package 'system-images;android-34;default;x86_64' --device '5.4in FWVGA'
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force -n test --package 'system-images;android-34;default;x86_64' --device '5.4in FWVGA'
           adb start-server
-          emulator -avd test -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -accel off > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          echo "Launching AVD; emulator binary: $ANDROID_HOME/emulator/emulator"
+          "$ANDROID_HOME/emulator/emulator" -avd test -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -accel off > "$RUNNER_TEMP/emulator.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/emulator.pid"
-          timeout 120 adb -s emulator-5554 wait-for-device
+          echo "Waiting up to five minutes for ADB device discovery."
+          timeout 300 adb -s emulator-5554 wait-for-device
 
           booted=0
           for attempt in $(seq 1 450); do
@@ -146,11 +148,13 @@ jobs:
         if: matrix.kind == 'foldable'
         run: |
           set -euo pipefail
-          echo no | avdmanager create avd --force -n test --package 'system-images;android-34;default;x86_64' --device '7.6in Foldable'
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force -n test --package 'system-images;android-34;default;x86_64' --device '7.6in Foldable'
           adb start-server
-          emulator -avd test -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -accel off > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          echo "Launching AVD; emulator binary: $ANDROID_HOME/emulator/emulator"
+          "$ANDROID_HOME/emulator/emulator" -avd test -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -accel off > "$RUNNER_TEMP/emulator.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/emulator.pid"
-          timeout 120 adb -s emulator-5554 wait-for-device
+          echo "Waiting up to five minutes for ADB device discovery."
+          timeout 300 adb -s emulator-5554 wait-for-device
 
           booted=0
           for attempt in $(seq 1 450); do
@@ -198,9 +202,9 @@ jobs:
       - name: Capture emulator diagnostics
         if: always()
         run: |
-          adb -s emulator-5554 devices 2>&1 > "$RUNNER_TEMP/adb-devices.txt" || true
-          adb -s emulator-5554 logcat -d -t 5000 > "$RUNNER_TEMP/emulator-logcat.txt" 2>&1 || true
-          adb -s emulator-5554 emu kill || true
+          timeout 15 adb devices -l > "$RUNNER_TEMP/adb-devices.txt" 2>&1 || true
+          timeout 15 adb -s emulator-5554 logcat -d -t 3000 > "$RUNNER_TEMP/emulator-logcat.txt" 2>&1 || true
+          timeout 15 adb -s emulator-5554 emu kill || true
 
       - name: Upload emulator diagnostics
         if: always()
