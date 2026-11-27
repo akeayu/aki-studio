@@ -167,6 +167,22 @@ jobs:
             find "$RUNNER_TEMP" -maxdepth 4 -name test.ini -print || true
             exit 1
           fi
+          # The hosted x86_64 runner has no /dev/kvm and must use TCG. Preserve the
+          # foldable's medium logical width and hinge sensor while reducing raster load.
+          AVD_CONFIG="$ANDROID_AVD_HOME/test.avd/config.ini"
+          if [ ! -f "$AVD_CONFIG" ]; then
+            echo "Foldable AVD config is missing: $AVD_CONFIG"
+            exit 1
+          fi
+          sed -i '/^hw\.lcd\.width=/d; /^hw\.lcd\.height=/d; /^hw\.lcd\.density=/d; /^hw\.ramSize=/d' "$AVD_CONFIG"
+          cat >> "$AVD_CONFIG" <<'AVD_EOF'
+          hw.lcd.width=1200
+          hw.lcd.height=1500
+          hw.lcd.density=288
+          hw.ramSize=3072
+          AVD_EOF
+          echo "Foldable AVD resource profile:"
+          grep -E '^(hw\.lcd\.(width|height|density)|hw\.ramSize)=' "$AVD_CONFIG"
           adb start-server
           echo "Launching AVD from $ANDROID_AVD_HOME; emulator binary: $ANDROID_HOME/emulator/emulator"
           ANDROID_I_WANT_MY_TCG=yes "$ANDROID_HOME/emulator/emulator" -avd test -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -accel off > "$RUNNER_TEMP/emulator.log" 2>&1 &
